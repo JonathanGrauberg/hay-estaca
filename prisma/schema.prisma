@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EstadoJuntada {
+  proxima
+  pasada
+  archivada
+}
+
+enum EstadoAsistencia {
+  voy
+  no_voy
+  en_duda
+}
+
+model User {
+  id              String    @id @default(cuid())
+  nombre          String
+  apodo           String
+  avatarUrl       String?
+  telefono        String
+  fechaNacimiento DateTime? @db.Date
+
+  asistencias             Asistencia[]
+  checklistItemsAsignados ChecklistItem[]  @relation("ChecklistAsignado")
+  gastosComprados         Gasto[]          @relation("GastoComprador")
+  gastoExclusiones        GastoExclusion[]
+}
+
+model Juntada {
+  id          String        @id @default(cuid())
+  nombre      String
+  fecha       DateTime      @db.Date
+  hora        String
+  ubicacion   String
+  mensajeFomo String?
+  estado      EstadoJuntada @default(proxima)
+  createdAt   DateTime      @default(now())
+
+  asistencias    Asistencia[]
+  checklistItems ChecklistItem[]
+  gastos         Gasto[]
+
+  @@index([estado])
+  @@index([fecha])
+}
+
+model Asistencia {
+  id           String           @id @default(cuid())
+  userId       String
+  juntadaId    String
+  estado       EstadoAsistencia @default(en_duda)
+  respondidoAt DateTime?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  juntada Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, juntadaId])
+  @@index([juntadaId])
+  @@index([userId])
+}
+
+model ChecklistItem {
+  id              String  @id @default(cuid())
+  juntadaId       String
+  descripcion     String
+  asignadoAUserId String?
+  completado      Boolean @default(false)
+
+  juntada   Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  asignadoA User?   @relation("ChecklistAsignado", fields: [asignadoAUserId], references: [id], onDelete: SetNull)
+
+  @@index([juntadaId])
+  @@index([asignadoAUserId])
+}
+
+model Gasto {
+  id              String   @id @default(cuid())
+  juntadaId       String
+  compradorUserId String
+  monto           Decimal  @db.Decimal(10, 2)
+  concepto        String
+  createdAt       DateTime @default(now())
+
+  juntada     Juntada          @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  comprador   User             @relation("GastoComprador", fields: [compradorUserId], references: [id], onDelete: Restrict)
+  exclusiones GastoExclusion[]
+
+  @@index([juntadaId])
+  @@index([compradorUserId])
+}
+
+model GastoExclusion {
+  id      String @id @default(cuid())
+  gastoId String
+  userId  String
+
+  gasto Gasto @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gastoId, userId])
+  @@index([gastoId])
+  @@index([userId])
+}
