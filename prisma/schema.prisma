@@ -27,7 +27,7 @@ model User {
   nombre          String
   apodo           String
   avatarUrl       String?
-  telefono        String
+  telefono        String?
   fechaNacimiento DateTime? @db.Date
 
   asistencias             Asistencia[]

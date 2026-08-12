@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(require\\('c:/Proyectos-Sistemas/hay-estaca/package.json'\\).type\\)\")",
+      "Bash(cp /tmp/rsvp_test.mts \"c:/Proyectos-Sistemas/hay-estaca/rsvp_test.mts\")",
+      "Bash(node --experimental-strip-types rsvp_test.mts)",
+      "Bash(rm -f \"c:/Proyectos-Sistemas/hay-estaca/rsvp_test.mts\" /tmp/rsvp_test.mts)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 76400 //F)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}
