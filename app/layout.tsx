@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Inter } from "next/font/google";
+import { QuienSosProvider } from "@/components/QuienSosProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +27,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${inter.variable} ${bebasNeue.variable} h-full`}>
-      <body className="flex min-h-full flex-col antialiased">{children}</body>
+      <body className="flex min-h-full flex-col antialiased">
+        <QuienSosProvider>{children}</QuienSosProvider>
+      </body>
     </html>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import type { EstadoAsistencia } from "@/app/generated/prisma/enums";
 import { actualizarAsistencia } from "@/lib/actions/asistencias";
 import { Avatar } from "@/components/juntadas/Avatar";
+import { useQuienSos } from "@/components/QuienSosProvider";
 import { cn } from "@/lib/utils";
 
 export interface MiembroConAsistencia {
@@ -43,9 +44,7 @@ function colorEstado(estado: EstadoAsistencia | null) {
 }
 
 export function AsistenciaPanel({ juntadaId, miembros }: AsistenciaPanelProps) {
-  // TODO: reemplazar por auth real cuando la implementemos. Por ahora "quién sos" es
-  // un selector a mano en el cliente, sin persistir entre sesiones ni verificar nada.
-  const [quienSoyId, setQuienSoyId] = useState<string | null>(null);
+  const { quienSoyId, setQuienSoyId } = useQuienSos();
   const [state, formAction, pending] = useActionState(actualizarAsistencia, undefined);
 
   const quienSoy = miembros.find((miembro) => miembro.id === quienSoyId) ?? null;

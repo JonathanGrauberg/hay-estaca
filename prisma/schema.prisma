@@ -22,6 +22,11 @@ enum EstadoAsistencia {
   en_duda
 }
 
+enum TipoChecklistItem {
+  grupal
+  individual
+}
+
 model User {
   id              String    @id @default(cuid())
   nombre          String
@@ -70,11 +75,13 @@ model Asistencia {
 }
 
 model ChecklistItem {
-  id              String  @id @default(cuid())
+  id              String            @id @default(cuid())
   juntadaId       String
   descripcion     String
   asignadoAUserId String?
-  completado      Boolean @default(false)
+  completado      Boolean           @default(false)
+  tipo            TipoChecklistItem @default(grupal)
+  createdAt       DateTime          @default(now())
 
   juntada   Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
   asignadoA User?   @relation("ChecklistAsignado", fields: [asignadoAUserId], references: [id], onDelete: SetNull)

@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatFechaLarga } from "@/lib/utils";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
+import { ChecklistSection } from "@/components/juntadas/ChecklistSection";
 
 // La asistencia se actualiza en vivo cuando alguien responde, así que esta página
 // se renderiza siempre en el servidor por request, nunca estática.
@@ -16,9 +17,14 @@ interface JuntadaDetallePageProps {
 export default async function JuntadaDetallePage({ params }: JuntadaDetallePageProps) {
   const { id } = await params;
 
-  const [juntada, miembros] = await Promise.all([
+  const [juntada, miembros, checklistItems] = await Promise.all([
     prisma.juntada.findUnique({ where: { id }, include: { asistencias: true } }),
     prisma.user.findMany({ orderBy: { nombre: "asc" } }),
+    prisma.checklistItem.findMany({
+      where: { juntadaId: id },
+      orderBy: { createdAt: "asc" },
+      include: { asignadoA: true },
+    }),
   ]);
 
   if (!juntada) {
@@ -35,6 +41,27 @@ export default async function JuntadaDetallePage({ params }: JuntadaDetallePageP
     apodo: miembro.apodo,
     avatarUrl: miembro.avatarUrl,
     estado: estadoPorUserId.get(miembro.id) ?? null,
+  }));
+
+  const miembrosBasicos = miembros.map((miembro) => ({
+    id: miembro.id,
+    nombre: miembro.nombre,
+    apodo: miembro.apodo,
+  }));
+
+  const checklistConAsignado = checklistItems.map((item) => ({
+    id: item.id,
+    descripcion: item.descripcion,
+    completado: item.completado,
+    tipo: item.tipo,
+    asignadoA: item.asignadoA
+      ? {
+          id: item.asignadoA.id,
+          nombre: item.asignadoA.nombre,
+          apodo: item.asignadoA.apodo,
+          avatarUrl: item.asignadoA.avatarUrl,
+        }
+      : null,
   }));
 
   return (
@@ -61,6 +88,12 @@ export default async function JuntadaDetallePage({ params }: JuntadaDetallePageP
       </div>
 
       <AsistenciaPanel juntadaId={juntada.id} miembros={miembrosConAsistencia} />
+
+      <ChecklistSection
+        juntadaId={juntada.id}
+        items={checklistConAsignado}
+        miembros={miembrosBasicos}
+      />
     </main>
   );
 }

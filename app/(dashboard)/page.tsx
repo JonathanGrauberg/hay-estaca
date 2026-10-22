@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { AvatarRow } from "@/components/juntadas/AvatarRow";
 import { JuntadaCard } from "@/components/juntadas/JuntadaCard";
 import { EmptyState } from "@/components/juntadas/EmptyState";
+import { RecordatorioBanner } from "@/components/juntadas/RecordatorioBanner";
 
 // La lista de miembros y el estado de asistencia cambian seguido (RSVPs en vivo),
 // así que esta página se renderiza siempre en el servidor por request, nunca estática.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [miembros, juntadasProximas, juntadasPasadas] = await Promise.all([
+  const [miembros, juntadasProximas, juntadasPasadas, checklistPendientes] = await Promise.all([
     prisma.user.findMany({ orderBy: { nombre: "asc" } }),
     prisma.juntada.findMany({
       where: { estado: "proxima" },
@@ -22,6 +23,20 @@ export default async function DashboardPage() {
       orderBy: { fecha: "desc" },
       include: { asistencias: true },
       take: 5,
+    }),
+    prisma.checklistItem.findMany({
+      where: {
+        tipo: "grupal",
+        completado: false,
+        asignadoAUserId: { not: null },
+        juntada: { estado: "proxima" },
+      },
+      select: {
+        id: true,
+        descripcion: true,
+        asignadoAUserId: true,
+        juntada: { select: { fecha: true, hora: true } },
+      },
     }),
   ]);
 
@@ -41,10 +56,18 @@ export default async function DashboardPage() {
     confirmado: confirmadosIds.has(miembro.id),
   }));
 
+  const miembrosBasicos = miembros.map((miembro) => ({
+    id: miembro.id,
+    nombre: miembro.nombre,
+    apodo: miembro.apodo,
+  }));
+
   const hayContenido = miembros.length > 0 || juntadasProximas.length > 0 || juntadasPasadas.length > 0;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10 pt-8">
+      <RecordatorioBanner items={checklistPendientes} miembros={miembrosBasicos} />
+
       <header className="flex flex-col items-center gap-1 text-center">
         <p className="flex items-center gap-2 font-heading text-3xl tracking-wide text-foreground">
           <span className="text-primary">●</span>

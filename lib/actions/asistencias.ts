@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export type ActualizarAsistenciaState = { error: string } | undefined;
@@ -26,4 +27,8 @@ export async function actualizarAsistencia(
     create: { userId, juntadaId, estado, respondidoAt: new Date() },
     update: { estado, respondidoAt: new Date() },
   });
+
+  // El anillo/badge del dashboard también dependen de esta asistencia.
+  revalidatePath(`/juntadas/${juntadaId}`);
+  revalidatePath("/");
 }
