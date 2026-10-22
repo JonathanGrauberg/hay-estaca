@@ -28,3 +28,16 @@ export function formatFechaLarga(fecha: Date) {
   }).format(fecha)
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
+
+// Hoy en Argentina, expresado igual que guarda Prisma un @db.Date (medianoche UTC),
+// para poder comparar contra Juntada.fecha y separar próximas de pasadas por la
+// fecha real en vez de depender de un estado que nadie actualiza.
+export function hoyComoFechaDb() {
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+  return new Date(ymd)
+}

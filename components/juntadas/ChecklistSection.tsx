@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { TipoChecklistItem } from "@/app/generated/prisma/enums";
-import { useQuienSos } from "@/components/QuienSosProvider";
 import {
   ChecklistItemRow,
   type ChecklistItemConAsignado,
@@ -14,6 +13,7 @@ interface ChecklistSectionProps {
   juntadaId: string;
   items: ChecklistItemConAsignado[];
   miembros: { id: string; nombre: string; apodo: string }[];
+  usuarioActualId: string;
 }
 
 const TABS: { tipo: TipoChecklistItem; label: string }[] = [
@@ -21,8 +21,7 @@ const TABS: { tipo: TipoChecklistItem; label: string }[] = [
   { tipo: "individual", label: "Individual" },
 ];
 
-export function ChecklistSection({ juntadaId, items, miembros }: ChecklistSectionProps) {
-  const { quienSoyId } = useQuienSos();
+export function ChecklistSection({ juntadaId, items, miembros, usuarioActualId }: ChecklistSectionProps) {
   const [tab, setTab] = useState<TipoChecklistItem>("grupal");
 
   const itemsFiltrados = items.filter((item) => item.tipo === tab);
@@ -58,7 +57,7 @@ export function ChecklistSection({ juntadaId, items, miembros }: ChecklistSectio
               juntadaId={juntadaId}
               item={item}
               miembros={miembros}
-              quienSoyId={quienSoyId}
+              usuarioActualId={usuarioActualId}
             />
           ))}
         </ul>

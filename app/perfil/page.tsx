@@ -1,15 +1,22 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { requireUsuario } from "@/lib/auth";
+import { crearIntegrante } from "@/lib/actions/usuarios";
 import { Avatar } from "@/components/juntadas/Avatar";
-import { FormSumarIntegrante } from "./FormSumarIntegrante";
+import { FormIntegrante } from "@/components/integrantes/FormIntegrante";
+import { FormCambiarPin } from "@/components/integrantes/FormCambiarPin";
 
 // La lista de integrantes puede cambiar apenas se suma alguien, así que se
 // renderiza siempre en el servidor por request en vez de quedar cacheada estática.
 export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
-  const miembros = await prisma.user.findMany({ orderBy: { nombre: "asc" } });
+  const usuario = await requireUsuario();
+  const miembros = await prisma.user.findMany({
+    orderBy: { nombre: "asc" },
+    select: { id: true, nombre: true, apodo: true, avatarUrl: true },
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10 pt-8">
@@ -38,7 +45,12 @@ export default async function PerfilPage() {
                 className="h-9 w-9 shrink-0 border-border text-xs text-muted-foreground-2"
               />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{miembro.apodo}</p>
+                <p className="truncate text-sm font-medium text-foreground">
+                  {miembro.apodo}
+                  {miembro.id === usuario.id && (
+                    <span className="text-muted-foreground-2"> (vos)</span>
+                  )}
+                </p>
                 <p className="truncate text-xs text-muted-foreground-2">{miembro.nombre}</p>
               </div>
             </li>
@@ -50,7 +62,17 @@ export default async function PerfilPage() {
         <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
           SUMAR INTEGRANTE
         </h2>
-        <FormSumarIntegrante />
+        <p className="text-sm text-muted-foreground">
+          Le ponés un PIN inicial y se lo pasás; después lo puede cambiar desde acá.
+        </p>
+        <FormIntegrante accion={crearIntegrante} labelBoton="Sumar integrante" labelPin="PIN inicial" />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
+          CAMBIAR MI PIN
+        </h2>
+        <FormCambiarPin />
       </section>
     </main>
   );

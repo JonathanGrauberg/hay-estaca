@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { CalendarPlus, PartyPopper, Plus } from "lucide-react";
+import { CalendarPlus, LogOut, PartyPopper, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { requireUsuario } from "@/lib/auth";
+import { cerrarSesion } from "@/lib/actions/auth";
+import { hoyComoFechaDb } from "@/lib/utils";
 import { AvatarRow } from "@/components/juntadas/AvatarRow";
 import { JuntadaCard } from "@/components/juntadas/JuntadaCard";
 import { EmptyState } from "@/components/juntadas/EmptyState";
@@ -11,15 +14,24 @@ import { RecordatorioBanner } from "@/components/juntadas/RecordatorioBanner";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const usuario = await requireUsuario();
+
+  // Próximas y pasadas se separan por la fecha real (hoy en Argentina). La juntada de
+  // hoy sigue siendo "próxima" hasta que termina el día. Las archivadas no se muestran.
+  const hoy = hoyComoFechaDb();
+
   const [miembros, juntadasProximas, juntadasPasadas, checklistPendientes] = await Promise.all([
-    prisma.user.findMany({ orderBy: { nombre: "asc" } }),
+    prisma.user.findMany({
+      orderBy: { nombre: "asc" },
+      select: { id: true, nombre: true, apodo: true, avatarUrl: true },
+    }),
     prisma.juntada.findMany({
-      where: { estado: "proxima" },
+      where: { estado: { not: "archivada" }, fecha: { gte: hoy } },
       orderBy: { fecha: "asc" },
       include: { asistencias: true },
     }),
     prisma.juntada.findMany({
-      where: { estado: "pasada" },
+      where: { estado: { not: "archivada" }, fecha: { lt: hoy } },
       orderBy: { fecha: "desc" },
       include: { asistencias: true },
       take: 5,
@@ -28,13 +40,12 @@ export default async function DashboardPage() {
       where: {
         tipo: "grupal",
         completado: false,
-        asignadoAUserId: { not: null },
-        juntada: { estado: "proxima" },
+        asignadoAUserId: usuario.id,
+        juntada: { estado: { not: "archivada" }, fecha: { gte: hoy } },
       },
       select: {
         id: true,
         descripcion: true,
-        asignadoAUserId: true,
         juntada: { select: { fecha: true, hora: true } },
       },
     }),
@@ -56,17 +67,23 @@ export default async function DashboardPage() {
     confirmado: confirmadosIds.has(miembro.id),
   }));
 
-  const miembrosBasicos = miembros.map((miembro) => ({
-    id: miembro.id,
-    nombre: miembro.nombre,
-    apodo: miembro.apodo,
-  }));
-
   const hayContenido = miembros.length > 0 || juntadasProximas.length > 0 || juntadasPasadas.length > 0;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10 pt-8">
-      <RecordatorioBanner items={checklistPendientes} miembros={miembrosBasicos} />
+      <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground-2">
+        <span>
+          Hola, <span className="font-semibold text-foreground">{usuario.apodo || usuario.nombre}</span>
+        </span>
+        <form action={cerrarSesion}>
+          <button type="submit" className="flex items-center gap-1 hover:text-primary">
+            <LogOut className="h-3.5 w-3.5" />
+            Salir
+          </button>
+        </form>
+      </div>
+
+      <RecordatorioBanner items={checklistPendientes} apodo={usuario.apodo || usuario.nombre} />
 
       <header className="flex flex-col items-center gap-1 text-center">
         <p className="flex items-center gap-2 font-heading text-3xl tracking-wide text-foreground">

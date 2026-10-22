@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requireUsuario } from "@/lib/auth";
 
 export type ActualizarAsistenciaState = { error: string } | undefined;
 
@@ -9,14 +10,13 @@ export async function actualizarAsistencia(
   _prevState: ActualizarAsistenciaState,
   formData: FormData
 ): Promise<ActualizarAsistenciaState> {
+  // Cada uno responde solo por sí mismo: el userId sale de la sesión, no del form.
+  const { id: userId } = await requireUsuario();
   const juntadaId = String(formData.get("juntadaId") ?? "");
-  const userId = String(formData.get("userId") ?? "");
   const estado = String(formData.get("estado") ?? "");
 
-  // TODO: reemplazar por auth real cuando la implementemos. Por ahora "userId" viene
-  // de un selector "¿quién sos?" sin verificar — cualquiera puede mandar cualquier id.
-  if (!juntadaId || !userId) {
-    return { error: "Elegí quién sos antes de responder." };
+  if (!juntadaId) {
+    return { error: "Falta la juntada." };
   }
   if (estado !== "voy" && estado !== "no_voy" && estado !== "en_duda") {
     return { error: "Estado de asistencia inválido." };

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireUsuario } from "@/lib/auth";
 
 export type CrearJuntadaState = { error: string } | undefined;
 
@@ -9,6 +10,7 @@ export async function crearJuntada(
   _prevState: CrearJuntadaState,
   formData: FormData
 ): Promise<CrearJuntadaState> {
+  await requireUsuario();
   const nombre = String(formData.get("nombre") ?? "").trim();
   const fecha = String(formData.get("fecha") ?? "").trim();
   const hora = String(formData.get("hora") ?? "").trim();

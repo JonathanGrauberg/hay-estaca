@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requireUsuario } from "@/lib/auth";
 import type { TipoChecklistItem } from "@/app/generated/prisma/enums";
 
 export type CrearChecklistItemState = { error: string } | undefined;
@@ -12,6 +13,7 @@ export async function crearChecklistItem(
   _prevState: CrearChecklistItemState,
   formData: FormData
 ): Promise<CrearChecklistItemState> {
+  await requireUsuario();
   const descripcion = String(formData.get("descripcion") ?? "").trim();
 
   if (!descripcion) {
@@ -26,7 +28,7 @@ export async function crearChecklistItem(
   revalidatePath("/");
 }
 
-// Solo togglea si el item es grupal y quienSoyId coincide con el asignado — si no
+// Solo togglea si el item es grupal y el usuario de la sesión es el asignado — si no
 // coincide (o el item no tiene asignado, o es individual), el where no matchea
 // ninguna fila y la acción queda rechazada sin tocar nada. No alcanza con
 // deshabilitar el checkbox en el cliente porque cualquiera puede mandar el request
@@ -35,11 +37,12 @@ export async function togglearChecklistItem(
   juntadaId: string,
   itemId: string,
   completado: boolean,
-  quienSoyId: string,
   _formData: FormData
 ) {
+  const usuario = await requireUsuario();
+
   await prisma.checklistItem.updateMany({
-    where: { id: itemId, tipo: "grupal", asignadoAUserId: quienSoyId },
+    where: { id: itemId, tipo: "grupal", asignadoAUserId: usuario.id },
     data: { completado },
   });
 
@@ -51,6 +54,7 @@ export async function togglearChecklistItem(
 // responsable. El where exige que siga sin asignar al momento de aplicarse, para
 // evitar pisarle la asignación a otra persona por una carrera entre dos requests.
 export async function asignarChecklistItem(juntadaId: string, itemId: string, formData: FormData) {
+  await requireUsuario();
   const userId = String(formData.get("userId") ?? "").trim();
 
   if (!userId) {
@@ -72,11 +76,12 @@ export async function asignarChecklistItem(juntadaId: string, itemId: string, fo
 export async function desasignarChecklistItem(
   juntadaId: string,
   itemId: string,
-  quienSoyId: string,
   _formData: FormData
 ) {
+  const usuario = await requireUsuario();
+
   await prisma.checklistItem.updateMany({
-    where: { id: itemId, tipo: "grupal", asignadoAUserId: quienSoyId },
+    where: { id: itemId, tipo: "grupal", asignadoAUserId: usuario.id },
     data: { asignadoAUserId: null, completado: false },
   });
 
@@ -85,6 +90,7 @@ export async function desasignarChecklistItem(
 }
 
 export async function borrarChecklistItem(juntadaId: string, itemId: string, _formData: FormData) {
+  await requireUsuario();
   await prisma.checklistItem.delete({ where: { id: itemId } });
 
   revalidatePath(`/juntadas/${juntadaId}`);

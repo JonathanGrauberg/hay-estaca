@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { requireUsuario } from "@/lib/auth";
 import { formatFechaLarga } from "@/lib/utils";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
 import { ChecklistSection } from "@/components/juntadas/ChecklistSection";
@@ -15,15 +16,19 @@ interface JuntadaDetallePageProps {
 }
 
 export default async function JuntadaDetallePage({ params }: JuntadaDetallePageProps) {
+  const usuario = await requireUsuario();
   const { id } = await params;
 
   const [juntada, miembros, checklistItems] = await Promise.all([
     prisma.juntada.findUnique({ where: { id }, include: { asistencias: true } }),
-    prisma.user.findMany({ orderBy: { nombre: "asc" } }),
+    prisma.user.findMany({
+      orderBy: { nombre: "asc" },
+      select: { id: true, nombre: true, apodo: true, avatarUrl: true },
+    }),
     prisma.checklistItem.findMany({
       where: { juntadaId: id },
       orderBy: { createdAt: "asc" },
-      include: { asignadoA: true },
+      include: { asignadoA: { select: { id: true, nombre: true, apodo: true, avatarUrl: true } } },
     }),
   ]);
 
@@ -87,12 +92,17 @@ export default async function JuntadaDetallePage({ params }: JuntadaDetallePageP
         )}
       </div>
 
-      <AsistenciaPanel juntadaId={juntada.id} miembros={miembrosConAsistencia} />
+      <AsistenciaPanel
+        juntadaId={juntada.id}
+        miembros={miembrosConAsistencia}
+        usuarioActualId={usuario.id}
+      />
 
       <ChecklistSection
         juntadaId={juntada.id}
         items={checklistConAsignado}
         miembros={miembrosBasicos}
+        usuarioActualId={usuario.id}
       />
     </main>
   );

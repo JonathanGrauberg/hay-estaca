@@ -23,18 +23,18 @@ interface ChecklistItemRowProps {
   juntadaId: string;
   item: ChecklistItemConAsignado;
   miembros: { id: string; nombre: string; apodo: string }[];
-  quienSoyId: string | null;
+  usuarioActualId: string;
 }
 
-export function ChecklistItemRow({ juntadaId, item, miembros, quienSoyId }: ChecklistItemRowProps) {
+export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }: ChecklistItemRowProps) {
   const esGrupal = item.tipo === "grupal";
-  const esElAsignado = esGrupal && item.asignadoA !== null && item.asignadoA.id === quienSoyId;
+  const esElAsignado = esGrupal && item.asignadoA !== null && item.asignadoA.id === usuarioActualId;
   const puedeTogglear = esGrupal && esElAsignado;
 
   return (
     <li className="flex items-center gap-3 rounded-lg bg-card px-4 py-2.5">
       {esGrupal && (
-        <form action={togglearChecklistItem.bind(null, juntadaId, item.id, !item.completado, quienSoyId ?? "")}>
+        <form action={togglearChecklistItem.bind(null, juntadaId, item.id, !item.completado)}>
           <button
             type="submit"
             disabled={!puedeTogglear}
@@ -77,7 +77,7 @@ export function ChecklistItemRow({ juntadaId, item, miembros, quienSoyId }: Chec
               />
               <span className="text-xs text-muted-foreground-2">{item.asignadoA.apodo}</span>
               {esElAsignado && (
-                <form action={desasignarChecklistItem.bind(null, juntadaId, item.id, quienSoyId ?? "")}>
+                <form action={desasignarChecklistItem.bind(null, juntadaId, item.id)}>
                   <button
                     type="submit"
                     className="text-xs text-muted-foreground-2 underline hover:text-primary"

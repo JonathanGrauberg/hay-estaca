@@ -4,7 +4,6 @@ import { useActionState } from "react";
 import type { EstadoAsistencia } from "@/app/generated/prisma/enums";
 import { actualizarAsistencia } from "@/lib/actions/asistencias";
 import { Avatar } from "@/components/juntadas/Avatar";
-import { useQuienSos } from "@/components/QuienSosProvider";
 import { cn } from "@/lib/utils";
 
 export interface MiembroConAsistencia {
@@ -18,6 +17,7 @@ export interface MiembroConAsistencia {
 interface AsistenciaPanelProps {
   juntadaId: string;
   miembros: MiembroConAsistencia[];
+  usuarioActualId: string;
 }
 
 const OPCIONES: { estado: EstadoAsistencia; label: string }[] = [
@@ -43,44 +43,13 @@ function colorEstado(estado: EstadoAsistencia | null) {
   return estado === "voy" ? "text-primary" : "text-muted-foreground-2";
 }
 
-export function AsistenciaPanel({ juntadaId, miembros }: AsistenciaPanelProps) {
-  const { quienSoyId, setQuienSoyId } = useQuienSos();
+export function AsistenciaPanel({ juntadaId, miembros, usuarioActualId }: AsistenciaPanelProps) {
   const [state, formAction, pending] = useActionState(actualizarAsistencia, undefined);
 
-  const quienSoy = miembros.find((miembro) => miembro.id === quienSoyId) ?? null;
+  const quienSoy = miembros.find((miembro) => miembro.id === usuarioActualId) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
-          ¿QUIÉN SOS?
-        </h2>
-        <div className="flex gap-4 overflow-x-auto px-1 py-1">
-          {miembros.map((miembro) => (
-            <button
-              key={miembro.id}
-              type="button"
-              onClick={() => setQuienSoyId(miembro.id)}
-              className="flex shrink-0 flex-col items-center gap-1.5"
-            >
-              <Avatar
-                nombre={miembro.nombre}
-                apodo={miembro.apodo}
-                avatarUrl={miembro.avatarUrl}
-                className={cn(
-                  miembro.id === quienSoyId
-                    ? "border-primary text-primary"
-                    : "border-border text-muted-foreground-2"
-                )}
-              />
-              <span className="max-w-14 truncate text-xs text-muted-foreground-2">
-                {miembro.apodo || miembro.nombre}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
       {quienSoy && (
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
@@ -88,7 +57,6 @@ export function AsistenciaPanel({ juntadaId, miembros }: AsistenciaPanelProps) {
           </h2>
           <form action={formAction} className="flex gap-2">
             <input type="hidden" name="juntadaId" value={juntadaId} />
-            <input type="hidden" name="userId" value={quienSoy.id} />
             {OPCIONES.map((opcion) => {
               const activo = quienSoy.estado === opcion.estado;
               return (
@@ -133,7 +101,7 @@ export function AsistenciaPanel({ juntadaId, miembros }: AsistenciaPanelProps) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">
                   {miembro.apodo}
-                  {miembro.id === quienSoyId && (
+                  {miembro.id === usuarioActualId && (
                     <span className="text-muted-foreground-2"> (vos)</span>
                   )}
                 </p>

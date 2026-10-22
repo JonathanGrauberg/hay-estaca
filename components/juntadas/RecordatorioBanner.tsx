@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { useQuienSos } from "@/components/QuienSosProvider";
 
 interface ItemPendiente {
   id: string;
   descripcion: string;
-  asignadoAUserId: string | null;
   juntada: { fecha: Date; hora: string };
 }
 
 interface RecordatorioBannerProps {
+  // Ya filtrados en el servidor: ítems grupales sin completar asignados al usuario logueado.
   items: ItemPendiente[];
-  miembros: { id: string; nombre: string; apodo: string }[];
+  apodo: string;
 }
 
 const UNA_HORA_MS = 60 * 60 * 1000;
@@ -35,9 +34,7 @@ function faltaMenosDeUnaHora(fecha: Date, hora: string) {
   return diferenciaMs > 0 && diferenciaMs <= UNA_HORA_MS;
 }
 
-export function RecordatorioBanner({ items, miembros }: RecordatorioBannerProps) {
-  const { quienSoyId } = useQuienSos();
-
+export function RecordatorioBanner({ items, apodo }: RecordatorioBannerProps) {
   // Fuerza un re-render cada minuto para que el banner se recalcule con la hora
   // actual y desaparezca solo apenas la juntada deja de estar "a menos de 1hs",
   // sin que la persona tenga que recargar la página.
@@ -47,21 +44,13 @@ export function RecordatorioBanner({ items, miembros }: RecordatorioBannerProps)
     return () => clearInterval(interval);
   }, []);
 
-  if (!quienSoyId) {
-    return null;
-  }
-
-  const misItems = items.filter(
-    (item) =>
-      item.asignadoAUserId === quienSoyId && faltaMenosDeUnaHora(item.juntada.fecha, item.juntada.hora)
+  const misItems = items.filter((item) =>
+    faltaMenosDeUnaHora(item.juntada.fecha, item.juntada.hora)
   );
 
   if (misItems.length === 0) {
     return null;
   }
-
-  const yo = miembros.find((miembro) => miembro.id === quienSoyId);
-  const apodo = yo?.apodo || yo?.nombre || "";
 
   return (
     <div className="flex items-start gap-2.5 rounded-lg border border-primary bg-primary/10 px-4 py-3">
