@@ -15,7 +15,7 @@ export default async function NuevaJuntadaPage() {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-xl lg:pt-12">
       <EncabezadoPagina titulo="Nueva juntada" volverA="/juntadas" />
       <FormJuntada accion={crearJuntada} miembros={miembros} labelBoton="Crear juntada" />
     </main>

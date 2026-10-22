@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -53,80 +53,115 @@ function mostrar(valor: string | number): string {
   }).format(Number(numero.toPrecision(12)));
 }
 
+// Transiciones puras del estado: las usan tanto los botones como el teclado de la PC.
+
+function conDigito(e: Estado, d: string): Estado {
+  if (e.nuevoNumero || e.entrada === "Error") {
+    return { ...e, entrada: d === "." ? "0." : d, nuevoNumero: false };
+  }
+  if (d === "." && e.entrada.includes(".")) return e;
+  if (e.entrada.replace(/[-.]/g, "").length >= 15) return e;
+  const entrada = e.entrada === "0" && d !== "." ? d : e.entrada + d;
+  return { ...e, entrada };
+}
+
+function conOperador(e: Estado, op: Operador): Estado {
+  const actual = Number(e.entrada);
+  // Cambiar de operador sin haber tipeado otro número: solo se reemplaza.
+  if (e.nuevoNumero && e.operador) {
+    return { ...e, operador: op, historial: `${mostrar(e.acumulado ?? 0)} ${op}` };
+  }
+  const acumulado =
+    e.acumulado !== null && e.operador ? operar(e.acumulado, actual, e.operador) : actual;
+  return {
+    entrada: limpiar(acumulado),
+    acumulado,
+    operador: op,
+    nuevoNumero: true,
+    historial: `${mostrar(acumulado)} ${op}`,
+  };
+}
+
+function conIgual(e: Estado): Estado {
+  if (e.acumulado === null || !e.operador) return e;
+  const actual = Number(e.entrada);
+  const resultado = operar(e.acumulado, actual, e.operador);
+  return {
+    entrada: Number.isFinite(resultado) ? limpiar(resultado) : "Error",
+    acumulado: null,
+    operador: null,
+    nuevoNumero: true,
+    historial: `${mostrar(e.acumulado)} ${e.operador} ${mostrar(actual)} =`,
+  };
+}
+
+// "10.000 + 15 %" suma el 15 % de 10.000; solo "15 %" da 0,15.
+function conPorcentaje(e: Estado): Estado {
+  const actual = Number(e.entrada);
+  const base =
+    e.acumulado !== null && (e.operador === "+" || e.operador === "−") ? e.acumulado : 1;
+  return { ...e, entrada: limpiar((base * actual) / 100), nuevoNumero: true };
+}
+
+function conBorrar(e: Estado): Estado {
+  if (e.nuevoNumero || e.entrada === "Error") return { ...e, entrada: "0", nuevoNumero: false };
+  const entrada = e.entrada.slice(0, -1);
+  return { ...e, entrada: entrada === "" || entrada === "-" ? "0" : entrada };
+}
+
+function conSignoCambiado(e: Estado): Estado {
+  const entrada = e.entrada.startsWith("-")
+    ? e.entrada.slice(1)
+    : e.entrada === "0"
+      ? "0"
+      : `-${e.entrada}`;
+  return { ...e, entrada };
+}
+
+// Teclado físico (PC): números, + - * /, Enter o =, Backspace, Escape o C, %.
+function transicionPorTecla(tecla: string): ((e: Estado) => Estado) | null {
+  if (/^\d$/.test(tecla)) return (e) => conDigito(e, tecla);
+  if (tecla === "," || tecla === ".") return (e) => conDigito(e, ".");
+  if (tecla === "+") return (e) => conOperador(e, "+");
+  if (tecla === "-") return (e) => conOperador(e, "−");
+  if (tecla === "*" || tecla === "x") return (e) => conOperador(e, "×");
+  if (tecla === "/") return (e) => conOperador(e, "÷");
+  if (tecla === "Enter" || tecla === "=") return conIgual;
+  if (tecla === "%") return conPorcentaje;
+  if (tecla === "Backspace") return conBorrar;
+  if (tecla === "Escape" || tecla === "c" || tecla === "C") return () => INICIAL;
+  return null;
+}
+
 export function Calculadora() {
   const [estado, setEstado] = useState<Estado>(INICIAL);
 
-  function digito(d: string) {
-    setEstado((e) => {
-      if (e.nuevoNumero || e.entrada === "Error") {
-        return { ...e, entrada: d === "." ? "0." : d, nuevoNumero: false };
-      }
-      if (d === "." && e.entrada.includes(".")) return e;
-      if (e.entrada.replace(/[-.]/g, "").length >= 15) return e;
-      const entrada = e.entrada === "0" && d !== "." ? d : e.entrada + d;
-      return { ...e, entrada };
-    });
-  }
+  useEffect(() => {
+    function alApretar(event: KeyboardEvent) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const transicion = transicionPorTecla(event.key);
+      if (!transicion) return;
+      // "/" abre la búsqueda rápida en Firefox y Enter podría "clickear" el botón con foco.
+      event.preventDefault();
+      setEstado(transicion);
+    }
+    window.addEventListener("keydown", alApretar);
+    return () => window.removeEventListener("keydown", alApretar);
+  }, []);
 
-  function operador(op: Operador) {
-    setEstado((e) => {
-      const actual = Number(e.entrada);
-      // Cambiar de operador sin haber tipeado otro número: solo se reemplaza.
-      if (e.nuevoNumero && e.operador) {
-        return { ...e, operador: op, historial: `${mostrar(e.acumulado ?? 0)} ${op}` };
-      }
-      const acumulado =
-        e.acumulado !== null && e.operador ? operar(e.acumulado, actual, e.operador) : actual;
-      return {
-        entrada: limpiar(acumulado),
-        acumulado,
-        operador: op,
-        nuevoNumero: true,
-        historial: `${mostrar(acumulado)} ${op}`,
-      };
-    });
-  }
+  const digito = (d: string) => setEstado((e) => conDigito(e, d));
+  const operador = (op: Operador) => setEstado((e) => conOperador(e, op));
+  const igual = () => setEstado(conIgual);
+  const porcentaje = () => setEstado(conPorcentaje);
+  const borrar = () => setEstado(conBorrar);
+  const cambiarSigno = () => setEstado(conSignoCambiado);
 
-  function igual() {
-    setEstado((e) => {
-      if (e.acumulado === null || !e.operador) return e;
-      const actual = Number(e.entrada);
-      const resultado = operar(e.acumulado, actual, e.operador);
-      return {
-        entrada: Number.isFinite(resultado) ? limpiar(resultado) : "Error",
-        acumulado: null,
-        operador: null,
-        nuevoNumero: true,
-        historial: `${mostrar(e.acumulado)} ${e.operador} ${mostrar(actual)} =`,
-      };
-    });
-  }
-
-  function porcentaje() {
-    // "10.000 + 15 %" suma el 15 % de 10.000; solo "15 %" da 0,15.
-    setEstado((e) => {
-      const actual = Number(e.entrada);
-      const base = e.acumulado !== null && (e.operador === "+" || e.operador === "−") ? e.acumulado : 1;
-      return { ...e, entrada: limpiar((base * actual) / 100), nuevoNumero: true };
-    });
-  }
-
-  function borrar() {
-    setEstado((e) => {
-      if (e.nuevoNumero || e.entrada === "Error") return { ...e, entrada: "0", nuevoNumero: false };
-      const entrada = e.entrada.slice(0, -1);
-      return { ...e, entrada: entrada === "" || entrada === "-" ? "0" : entrada };
-    });
-  }
-
-  function cambiarSigno() {
-    setEstado((e) => ({
-      ...e,
-      entrada: e.entrada.startsWith("-") ? e.entrada.slice(1) : e.entrada === "0" ? "0" : `-${e.entrada}`,
-    }));
-  }
-
-  const teclas: { label: React.ReactNode; accion: () => void; tipo?: "op" | "fn" | "igual"; ancho?: boolean; aria?: string }[] = [
+  const teclas: {
+    label: React.ReactNode;
+    accion: () => void;
+    tipo?: "op" | "fn" | "igual";
+    aria?: string;
+  }[] = [
     { label: "C", accion: () => setEstado(INICIAL), tipo: "fn" },
     { label: "±", accion: cambiarSigno, tipo: "fn" },
     { label: "%", accion: porcentaje, tipo: "fn" },
@@ -181,6 +216,9 @@ export function Calculadora() {
           );
         })}
       </div>
+      <p className="hidden text-center text-xs text-muted-foreground-2 lg:block">
+        Podés usar el teclado: Enter es =, Esc borra todo.
+      </p>
     </div>
   );
 }

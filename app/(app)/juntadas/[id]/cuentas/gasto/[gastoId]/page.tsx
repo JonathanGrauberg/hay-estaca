@@ -23,7 +23,7 @@ export default async function EditarGastoPage({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-xl lg:pt-12">
       <EncabezadoPagina titulo="Editar gasto" volverA={`/juntadas/${id}/cuentas`} />
       <FormGasto
         accion={guardarGasto.bind(null, id, gasto.id)}

@@ -34,7 +34,7 @@ export default async function CuentasPage() {
   const miSaldoTotal = resumenes.reduce((total, r) => total + r.miSaldo, 0);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-5xl lg:px-8 lg:pt-12">
       <EncabezadoPagina titulo="Cuentas" />
 
       {miSaldoTotal !== 0 && (
@@ -64,7 +64,7 @@ export default async function CuentasPage() {
           actionHref="/juntadas/nueva"
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2">
           {resumenes.map((r) => (
             <li key={r.id}>
               <Link

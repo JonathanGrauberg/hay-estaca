@@ -2,31 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, House, User, Users, Wallet } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ITEMS_NAVEGACION, estaActivo } from "@/components/navegacion/items";
 import { cn } from "@/lib/utils";
 
-// Se van sumando secciones (Juegos, ...) a medida que existan; mientras tanto
-// están como cards "próximamente" en el inicio, no como botones muertos acá.
-const ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/", label: "Inicio", icon: House },
-  { href: "/juntadas", label: "Juntadas", icon: CalendarDays },
-  { href: "/cuentas", label: "Cuentas", icon: Wallet },
-  { href: "/integrantes", label: "Grupo", icon: Users },
-  { href: "/perfil", label: "Yo", icon: User },
-];
-
-function estaActivo(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
-}
-
+// Barra fija abajo, solo en pantallas chicas. En desktop la reemplaza BarraLateral.
 export function BarraNavegacion() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
       <ul className="mx-auto flex max-w-md">
-        {ITEMS.map(({ href, label, icon: Icon }) => {
+        {ITEMS_NAVEGACION.filter((item) => !item.soloLateral).map(({ href, label, icon: Icon }) => {
           const activo = estaActivo(pathname, href);
           return (
             <li key={href} className="flex-1">

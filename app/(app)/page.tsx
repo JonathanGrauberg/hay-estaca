@@ -62,7 +62,7 @@ export default async function InicioPage() {
   const confirmadosIds = new Set(
     (juntadaDestacada?.asistencias ?? [])
       .filter((asistencia) => asistencia.estado === "voy")
-      .map((asistencia) => asistencia.userId)
+      .map((asistencia) => asistencia.userId),
   );
 
   const miEstado =
@@ -75,86 +75,104 @@ export default async function InicioPage() {
   }));
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-6">
-      <header className="flex flex-col items-center gap-1 text-center">
-        <p className="flex items-center gap-2 font-heading text-3xl tracking-wide text-foreground">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-6 lg:max-w-5xl lg:px-8 lg:pt-12">
+      {/* En desktop el logo ya está en la barra lateral: acá queda solo el saludo. */}
+      <header className="flex flex-col items-center gap-1 text-center lg:items-start lg:text-left">
+        <p className="flex items-center gap-2 font-heading text-3xl tracking-wide text-foreground lg:hidden">
           <span className="text-primary">●</span>
           ESTAQUEROS
         </p>
-        <p className="text-xs tracking-[0.2em] text-muted-foreground-2">
+        <p className="text-xs tracking-[0.2em] text-muted-foreground-2 lg:hidden">
           ★ HOLA, {(usuario.apodo || usuario.nombre).toUpperCase()} ★
         </p>
+        <h1 className="hidden font-heading text-5xl tracking-wide text-foreground lg:block">
+          HOLA, {(usuario.apodo || usuario.nombre).toUpperCase()}
+        </h1>
       </header>
 
-      <RecordatorioBanner items={checklistPendientes} apodo={usuario.apodo || usuario.nombre} />
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[3fr_2fr] lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-6">
+          <RecordatorioBanner items={checklistPendientes} apodo={usuario.apodo || usuario.nombre} />
 
-      <AvatarRow miembros={miembrosConEstado} />
+          <AvatarRow miembros={miembrosConEstado} />
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
-            PRÓXIMA JUNTADA
-          </h2>
-          <Link
-            href="/juntadas/nueva"
-            className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Nueva
-          </Link>
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
+                PRÓXIMA JUNTADA
+              </h2>
+              <Link
+                href="/juntadas/nueva"
+                className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nueva
+              </Link>
+            </div>
+
+            {juntadaDestacada ? (
+              <div className="flex flex-col gap-2">
+                <JuntadaCard
+                  id={juntadaDestacada.id}
+                  variant="destacada"
+                  nombre={juntadaDestacada.nombre}
+                  fecha={juntadaDestacada.fecha}
+                  hora={juntadaDestacada.hora}
+                  ubicacion={juntadaDestacada.ubicacion}
+                  mensajeFomo={juntadaDestacada.mensajeFomo}
+                  confirmados={confirmadosIds.size}
+                  totalMiembros={miembros.length}
+                  invitados={juntadaDestacada._count.invitados}
+                />
+                <RsvpBotones juntadaId={juntadaDestacada.id} estadoActual={miEstado} />
+              </div>
+            ) : (
+              <EmptyState
+                icon={CalendarPlus}
+                title="No hay una próxima juntada"
+                description="Creá una juntada para que el grupo pueda confirmar asistencia."
+                actionLabel="Crear juntada"
+                actionHref="/juntadas/nueva"
+              />
+            )}
+          </section>
         </div>
 
-        {juntadaDestacada ? (
-          <div className="flex flex-col gap-2">
-            <JuntadaCard
-              id={juntadaDestacada.id}
-              variant="destacada"
-              nombre={juntadaDestacada.nombre}
-              fecha={juntadaDestacada.fecha}
-              hora={juntadaDestacada.hora}
-              ubicacion={juntadaDestacada.ubicacion}
-              mensajeFomo={juntadaDestacada.mensajeFomo}
-              confirmados={confirmadosIds.size}
-              totalMiembros={miembros.length}
-              invitados={juntadaDestacada._count.invitados}
-            />
-            <RsvpBotones juntadaId={juntadaDestacada.id} estadoActual={miEstado} />
-          </div>
-        ) : (
-          <EmptyState
-            icon={CalendarPlus}
-            title="No hay una próxima juntada"
-            description="Creá una juntada para que el grupo pueda confirmar asistencia."
-            actionLabel="Crear juntada"
-            actionHref="/juntadas/nueva"
+        <section className="grid grid-cols-2 gap-2">
+          <CardSeccion
+            icon={CalendarDays}
+            titulo="Juntadas"
+            detalle={
+              otrasProximas.length > 0
+                ? `${otrasProximas.length} más en agenda`
+                : "Próximas y pasadas"
+            }
+            href="/juntadas"
           />
-        )}
-      </section>
-
-      <section className="grid grid-cols-2 gap-2">
-        <CardSeccion
-          icon={CalendarDays}
-          titulo="Juntadas"
-          detalle={
-            otrasProximas.length > 0
-              ? `${otrasProximas.length} más en agenda`
-              : "Próximas y pasadas"
-          }
-          href="/juntadas"
-        />
-        <CardSeccion
-          icon={Users}
-          titulo="Grupo"
-          detalle={`${miembros.length} integrantes`}
-          href="/integrantes"
-        />
-        <CardSeccion icon={Wallet} titulo="Cuentas" detalle="Quién le debe a quién" href="/cuentas" />
-        <CardSeccion icon={Dices} titulo="Juegos" detalle="Próximamente" />
-        <CardSeccion icon={Vote} titulo="Votaciones" detalle="Próximamente" />
-        <CardSeccion icon={Trophy} titulo="Estadísticas" detalle="Próximamente" />
-        <CardSeccion icon={Calculator} titulo="Calculadora" detalle="Sumá, dividí, al toque" href="/calculadora" />
-        <CardSeccion icon={User} titulo="Yo" detalle="Mis datos y PIN" href="/perfil" />
-      </section>
+          <CardSeccion
+            icon={Users}
+            titulo="Grupo"
+            detalle={`${miembros.length} integrantes`}
+            href="/integrantes"
+          />
+          <CardSeccion
+            icon={Wallet}
+            titulo="Cuentas"
+            detalle="Quién le debe a quién"
+            href="/cuentas"
+          />
+          <CardSeccion icon={Dices} titulo="Juegos" detalle="Próximamente" />
+          <CardSeccion icon={Vote} titulo="Votaciones" detalle="Próximamente" />
+          <CardSeccion icon={Trophy} titulo="Estadísticas" detalle="Próximamente" />
+          <CardSeccion
+            icon={Calculator}
+            titulo="Calculadora"
+            detalle="Sumá, dividí, al toque"
+            href="/calculadora"
+          />
+          <CardSeccion icon={User} titulo="Yo" detalle="Mis datos y PIN" href="/perfil" />
+        </section>
+      </div>
     </main>
   );
 }

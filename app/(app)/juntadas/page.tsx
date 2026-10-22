@@ -38,7 +38,7 @@ export default async function JuntadasPage() {
   ];
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-5xl lg:px-8 lg:pt-12">
       <EncabezadoPagina
         titulo="Juntadas"
         accion={
@@ -68,7 +68,7 @@ export default async function JuntadasPage() {
               <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
                 {seccion.titulo}
               </h2>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2">
                 {seccion.juntadas.map((juntada) => (
                   <JuntadaCard
                     key={juntada.id}

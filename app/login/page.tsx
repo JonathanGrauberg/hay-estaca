@@ -18,7 +18,7 @@ export default async function LoginPage() {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-4 pb-10 pt-12">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-4 pb-10 pt-12 lg:justify-center lg:pb-24">
       <header className="flex flex-col items-center gap-1 text-center">
         <p className="flex items-center gap-2 font-heading text-4xl tracking-wide text-foreground">
           <span className="text-primary">●</span>
