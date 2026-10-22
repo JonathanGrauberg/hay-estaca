@@ -14,6 +14,7 @@ interface JuntadaCardProps {
   /** Solo se usa (y se muestra) cuando variant === "destacada". */
   confirmados?: number;
   totalMiembros?: number;
+  invitados?: number;
 }
 
 export function JuntadaCard({
@@ -26,6 +27,7 @@ export function JuntadaCard({
   variant,
   confirmados,
   totalMiembros,
+  invitados = 0,
 }: JuntadaCardProps) {
   const destacada = variant === "destacada";
   const pasada = variant === "pasada";
@@ -57,7 +59,7 @@ export function JuntadaCard({
 
       {destacada && confirmados !== undefined && totalMiembros !== undefined && (
         <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
-          {confirmados} de {totalMiembros} ✓
+          {confirmados} de {totalMiembros} ✓{invitados > 0 && ` +${invitados}`}
         </span>
       )}
     </Link>

@@ -13,23 +13,14 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
 - Integrantes: alta con PIN inicial, cambiar mi PIN.
 - Seed de usuarios de prueba (`npm run seed`, ver `.env.example`).
 - PWA: manifest e íconos.
+- Deploy en Vercel (https://hay-estaca.vercel.app), se publica solo con cada push a `main`.
+- Inicio con la próxima juntada + RSVP y cards por sección; barra de navegación abajo
+  (Inicio, Juntadas, Grupo, Yo).
+- Juntadas: lista (próximas, pasadas, archivadas), editar, archivar, borrar, anfitrión.
+- Invitados por juntada (solo nombre, sin login).
+- Grupo: editar y sacar integrantes. "Yo": mis datos, cambiar PIN, cerrar sesión.
 
 ## Próximos pasos (en orden)
-
-### 1. Deploy a Vercel
-- Conectar el repo, cargar `DATABASE_URL` y un `SESSION_SECRET` nuevo.
-- Asegurar `prisma generate` en el build (`app/generated/prisma` está en `.gitignore`).
-- Verificar HTTPS, instalación como PWA en el celular y el login.
-- Usar `sslmode=verify-full` en `DATABASE_URL` (sin el warning SSL de `pg`).
-
-### 2. Nueva estructura de la app
-- Inicio: próxima juntada destacada con el RSVP ahí mismo + grilla de cards
-  (Juntadas · Cuentas · Juegos · Votaciones · Estadísticas · Calculadora · Ajustes).
-- Barra fija abajo en el celular (Inicio, Juntadas, Cuentas, Juegos, Yo).
-- **Invitados por juntada**: alguien que suma un integrante, solo con nombre y sin login.
-  Participa en cuentas y juegos.
-- Editar y borrar juntadas e integrantes; archivar juntadas (estado "archivada", sin borrar).
-- Anfitrión de cada juntada (integrante), para las estadísticas.
 
 ### 3. Cuentas claras + calculadora
 - Cada gasto: quién pagó, monto, concepto y **entre quiénes se divide**

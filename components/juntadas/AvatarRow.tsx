@@ -38,7 +38,7 @@ export function AvatarRow({ miembros }: AvatarRowProps) {
 
       <div className="flex shrink-0 flex-col items-center gap-1.5">
         <Link
-          href="/perfil"
+          href="/integrantes"
           aria-label="Sumar integrante"
           className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-border text-muted-foreground-2 transition-colors hover:border-primary hover:text-primary"
         >

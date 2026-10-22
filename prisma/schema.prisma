@@ -44,6 +44,8 @@ model User {
   checklistItemsAsignados ChecklistItem[]  @relation("ChecklistAsignado")
   gastosComprados         Gasto[]          @relation("GastoComprador")
   gastoExclusiones        GastoExclusion[]
+  juntadasAnfitrion       Juntada[]        @relation("JuntadaAnfitrion")
+  invitadosTraidos        Invitado[]       @relation("InvitadoTraidoPor")
 }
 
 model Juntada {
@@ -53,15 +55,35 @@ model Juntada {
   hora        String
   ubicacion   String
   mensajeFomo String?
+  // Próxima/pasada se calcula por la fecha; el estado solo importa para "archivada".
   estado      EstadoJuntada @default(proxima)
+  // Quién la organiza o pone la casa (para las estadísticas de anfitrión).
+  anfitrionId String?
   createdAt   DateTime      @default(now())
 
+  anfitrion      User?           @relation("JuntadaAnfitrion", fields: [anfitrionId], references: [id], onDelete: SetNull)
+  invitados      Invitado[]
   asistencias    Asistencia[]
   checklistItems ChecklistItem[]
   gastos         Gasto[]
 
   @@index([estado])
   @@index([fecha])
+}
+
+// Alguien de afuera del grupo que va a una juntada puntual (amigo, familiar). Solo
+// nombre, sin login: participa de cuentas y juegos de esa juntada.
+model Invitado {
+  id          String   @id @default(cuid())
+  juntadaId   String
+  nombre      String
+  traidoPorId String?
+  createdAt   DateTime @default(now())
+
+  juntada   Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  traidoPor User?   @relation("InvitadoTraidoPor", fields: [traidoPorId], references: [id], onDelete: SetNull)
+
+  @@index([juntadaId])
 }
 
 model Asistencia {

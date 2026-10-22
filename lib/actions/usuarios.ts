@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { guardarSesion, requireUsuario } from "@/lib/auth";
@@ -45,7 +46,8 @@ export async function crearIntegrante(
 
   await prisma.user.create({ data: resultado.data });
 
-  redirect("/perfil");
+  revalidatePath("/", "layout");
+  redirect("/integrantes");
 }
 
 // Solo para arrancar con la base vacía: el primero en entrar se crea a sí mismo y
@@ -67,4 +69,49 @@ export async function crearPrimerIntegrante(
   await guardarSesion(usuario.id);
 
   redirect("/");
+}
+
+export type EditarIntegranteState = { error: string } | { ok: string } | undefined;
+
+// Grupo de confianza: cualquiera puede corregir los datos de cualquiera (nombre,
+// apodo, teléfono). El PIN no se toca acá: solo lo cambia cada uno desde /perfil.
+export async function editarIntegrante(
+  userId: string,
+  _prevState: EditarIntegranteState,
+  formData: FormData
+): Promise<EditarIntegranteState> {
+  await requireUsuario();
+
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const apodo = String(formData.get("apodo") ?? "").trim();
+  const telefono = String(formData.get("telefono") ?? "").trim();
+
+  if (!nombre || !apodo) {
+    return { error: "Completá nombre y apodo." };
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { nombre, apodo, telefono: telefono || null },
+  });
+
+  revalidatePath("/", "layout");
+  return { ok: "Guardado." };
+}
+
+export async function borrarIntegrante(userId: string, _formData: FormData) {
+  const usuario = await requireUsuario();
+
+  // Borrarse a uno mismo dejaría la sesión colgada (y podría dejar el grupo vacío).
+  if (userId === usuario.id) {
+    return;
+  }
+
+  // Asistencias se borran en cascada; checklist, anfitrión e invitados traídos
+  // quedan sin asignar (SetNull). Si algún día tiene gastos pagados, Prisma lo
+  // rechaza (Restrict) para no romper las cuentas.
+  await prisma.user.delete({ where: { id: userId } });
+
+  revalidatePath("/", "layout");
+  redirect("/integrantes");
 }
