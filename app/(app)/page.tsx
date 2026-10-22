@@ -148,11 +148,11 @@ export default async function InicioPage() {
           detalle={`${miembros.length} integrantes`}
           href="/integrantes"
         />
-        <CardSeccion icon={Wallet} titulo="Cuentas" detalle="Próximamente" />
+        <CardSeccion icon={Wallet} titulo="Cuentas" detalle="Quién le debe a quién" href="/cuentas" />
         <CardSeccion icon={Dices} titulo="Juegos" detalle="Próximamente" />
         <CardSeccion icon={Vote} titulo="Votaciones" detalle="Próximamente" />
         <CardSeccion icon={Trophy} titulo="Estadísticas" detalle="Próximamente" />
-        <CardSeccion icon={Calculator} titulo="Calculadora" detalle="Próximamente" />
+        <CardSeccion icon={Calculator} titulo="Calculadora" detalle="Sumá, dividí, al toque" href="/calculadora" />
         <CardSeccion icon={User} titulo="Yo" detalle="Mis datos y PIN" href="/perfil" />
       </section>
     </main>

@@ -107,11 +107,37 @@ export async function borrarIntegrante(userId: string, _formData: FormData) {
     return;
   }
 
-  // Asistencias se borran en cascada; checklist, anfitrión e invitados traídos
-  // quedan sin asignar (SetNull). Si algún día tiene gastos pagados, Prisma lo
-  // rechaza (Restrict) para no romper las cuentas.
+  // Si pagó gastos no se puede borrar: se romperían las cuentas (el schema lo
+  // impide con Restrict). La pantalla ya oculta el botón en ese caso.
+  if ((await prisma.gasto.count({ where: { pagadoPorUserId: userId } })) > 0) {
+    return;
+  }
+
+  // Asistencias y participaciones se borran en cascada; checklist, anfitrión e
+  // invitados traídos quedan sin asignar (SetNull).
   await prisma.user.delete({ where: { id: userId } });
 
   revalidatePath("/", "layout");
   redirect("/integrantes");
+}
+
+export type GuardarAliasState = { error: string } | { ok: string } | undefined;
+
+// El alias/CVU solo lo cambia su dueño: es a dónde le van a transferir plata, así
+// que nadie más puede tocarlo (a diferencia de nombre/apodo/teléfono).
+export async function guardarAlias(
+  _prevState: GuardarAliasState,
+  formData: FormData
+): Promise<GuardarAliasState> {
+  const usuario = await requireUsuario();
+  const aliasCvu = String(formData.get("aliasCvu") ?? "").trim();
+
+  if (aliasCvu && !/^(\d{22}|[A-Za-z0-9.-]{6,20})$/.test(aliasCvu)) {
+    return { error: "Tiene que ser un alias (6 a 20 letras, números, puntos o guiones) o un CVU/CBU de 22 números." };
+  }
+
+  await prisma.user.update({ where: { id: usuario.id }, data: { aliasCvu: aliasCvu || null } });
+
+  revalidatePath("/", "layout");
+  return { ok: aliasCvu ? "Alias guardado." : "Alias borrado." };
 }

@@ -6,7 +6,7 @@ import { agregarInvitado, borrarInvitado } from "@/lib/actions/juntadas";
 
 interface InvitadosSectionProps {
   juntadaId: string;
-  invitados: { id: string; nombre: string; traidoPor: string | null }[];
+  invitados: { id: string; nombre: string; traidoPor: string | null; pagoGastos: boolean }[];
 }
 
 export function InvitadosSection({ juntadaId, invitados }: InvitadosSectionProps) {
@@ -36,15 +36,20 @@ export function InvitadosSection({ juntadaId, invitados }: InvitadosSectionProps
                   </p>
                 )}
               </div>
-              <form action={borrarInvitado.bind(null, juntadaId, invitado.id)}>
-                <button
-                  type="submit"
-                  aria-label={`Sacar a ${invitado.nombre}`}
-                  className="text-muted-foreground-2 hover:text-primary"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </form>
+              {invitado.pagoGastos ? (
+                // Pagó algo: sacarlo rompería las cuentas. Primero hay que editar esos gastos.
+                <span className="shrink-0 text-xs text-muted-foreground-2">pagó gastos</span>
+              ) : (
+                <form action={borrarInvitado.bind(null, juntadaId, invitado.id)}>
+                  <button
+                    type="submit"
+                    aria-label={`Sacar a ${invitado.nombre}`}
+                    className="text-muted-foreground-2 hover:text-primary"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </form>
+              )}
             </li>
           ))}
         </ul>

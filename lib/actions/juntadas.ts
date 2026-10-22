@@ -123,15 +123,21 @@ export async function agregarInvitado(
     data: { juntadaId, nombre, traidoPorId: usuario.id },
   });
 
-  revalidatePath(`/juntadas/${juntadaId}`);
+  revalidatePath(`/juntadas/${juntadaId}`, "layout");
   revalidatePath("/");
 }
 
 export async function borrarInvitado(juntadaId: string, invitadoId: string, _formData: FormData) {
   await requireUsuario();
 
+  // Si pagó algún gasto no se puede sacar (rompería las cuentas); la pantalla ya
+  // oculta la X en ese caso.
+  if ((await prisma.gasto.count({ where: { pagadoPorInvitadoId: invitadoId } })) > 0) {
+    return;
+  }
+
   await prisma.invitado.deleteMany({ where: { id: invitadoId, juntadaId } });
 
-  revalidatePath(`/juntadas/${juntadaId}`);
+  revalidatePath(`/juntadas/${juntadaId}`, "layout");
   revalidatePath("/");
 }

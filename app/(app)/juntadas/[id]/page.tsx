@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { ChevronRight, Pencil, Wallet } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { formatFechaLarga } from "@/lib/utils";
+import { formatearPesos } from "@/lib/cuentas/dinero";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
 import { ChecklistSection } from "@/components/juntadas/ChecklistSection";
 import { InvitadosSection } from "@/components/juntadas/InvitadosSection";
@@ -25,7 +26,11 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
       include: {
         asistencias: true,
         anfitrion: usuarioBasico,
-        invitados: { orderBy: { createdAt: "asc" }, include: { traidoPor: usuarioBasico } },
+        invitados: {
+          orderBy: { createdAt: "asc" },
+          include: { traidoPor: usuarioBasico, _count: { select: { gastosPagados: true } } },
+        },
+        gastos: { select: { montoCentavos: true } },
       },
     }),
     prisma.user.findMany({ orderBy: { nombre: "asc" }, ...usuarioBasico }),
@@ -59,7 +64,10 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
     id: invitado.id,
     nombre: invitado.nombre,
     traidoPor: invitado.traidoPor ? invitado.traidoPor.apodo || invitado.traidoPor.nombre : null,
+    pagoGastos: invitado._count.gastosPagados > 0,
   }));
+
+  const totalGastado = juntada.gastos.reduce((total, gasto) => total + gasto.montoCentavos, 0);
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8">
@@ -97,6 +105,22 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
           <p className="mt-1 text-sm text-muted-foreground-2">{juntada.mensajeFomo}</p>
         )}
       </div>
+
+      <Link
+        href={`/juntadas/${juntada.id}/cuentas`}
+        className="flex items-center gap-3 rounded-lg bg-card px-4 py-3 transition-colors hover:bg-accent"
+      >
+        <Wallet className="h-5 w-5 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Cuentas claras</p>
+          <p className="text-xs text-muted-foreground-2">
+            {juntada.gastos.length > 0
+              ? `${juntada.gastos.length} gastos · ${formatearPesos(totalGastado)}`
+              : "Cargá quién compró qué"}
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
+      </Link>
 
       <AsistenciaPanel
         juntadaId={juntada.id}

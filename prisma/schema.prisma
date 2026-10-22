@@ -39,13 +39,17 @@ model User {
   // Después de 5 PINs incorrectos seguidos, el login queda bloqueado unos minutos.
   intentosFallidos Int       @default(0)
   bloqueadoHasta   DateTime?
+  // Alias o CVU para que le transfieran en las cuentas. Solo lo edita el dueño.
+  aliasCvu         String?
 
   asistencias             Asistencia[]
-  checklistItemsAsignados ChecklistItem[]  @relation("ChecklistAsignado")
-  gastosComprados         Gasto[]          @relation("GastoComprador")
-  gastoExclusiones        GastoExclusion[]
-  juntadasAnfitrion       Juntada[]        @relation("JuntadaAnfitrion")
-  invitadosTraidos        Invitado[]       @relation("InvitadoTraidoPor")
+  checklistItemsAsignados ChecklistItem[]     @relation("ChecklistAsignado")
+  gastosPagados           Gasto[]             @relation("GastoPagadoPorUser")
+  gastosParticipa         GastoParticipante[]
+  bonificaciones          Bonificado[]        @relation("BonificadoUser")
+  bonificacionesCubiertas Bonificado[]        @relation("BonificadoCubiertoPor")
+  juntadasAnfitrion       Juntada[]           @relation("JuntadaAnfitrion")
+  invitadosTraidos        Invitado[]          @relation("InvitadoTraidoPor")
 }
 
 model Juntada {
@@ -66,6 +70,7 @@ model Juntada {
   asistencias    Asistencia[]
   checklistItems ChecklistItem[]
   gastos         Gasto[]
+  bonificados    Bonificado[]
 
   @@index([estado])
   @@index([fecha])
@@ -82,6 +87,10 @@ model Invitado {
 
   juntada   Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
   traidoPor User?   @relation("InvitadoTraidoPor", fields: [traidoPorId], references: [id], onDelete: SetNull)
+
+  gastosPagados   Gasto[]             @relation("GastoPagadoPorInvitado")
+  gastosParticipa GastoParticipante[]
+  bonificaciones  Bonificado[]
 
   @@index([juntadaId])
 }
@@ -117,31 +126,61 @@ model ChecklistItem {
   @@index([asignadoAUserId])
 }
 
+// Cuentas claras. Una "persona" de una juntada es un integrante (userId) o un
+// invitado (invitadoId): en las tablas de abajo va exactamente uno de los dos.
+// Los montos van en centavos (Int) para que las cuentas no tengan errores de redondeo.
 model Gasto {
-  id              String   @id @default(cuid())
-  juntadaId       String
-  compradorUserId String
-  monto           Decimal  @db.Decimal(10, 2)
-  concepto        String
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(cuid())
+  juntadaId           String
+  concepto            String
+  montoCentavos       Int
+  pagadoPorUserId     String?
+  pagadoPorInvitadoId String?
+  createdAt           DateTime @default(now())
 
-  juntada     Juntada          @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
-  comprador   User             @relation("GastoComprador", fields: [compradorUserId], references: [id], onDelete: Restrict)
-  exclusiones GastoExclusion[]
+  juntada           Juntada             @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  pagadoPorUser     User?               @relation("GastoPagadoPorUser", fields: [pagadoPorUserId], references: [id], onDelete: Restrict)
+  pagadoPorInvitado Invitado?           @relation("GastoPagadoPorInvitado", fields: [pagadoPorInvitadoId], references: [id], onDelete: Restrict)
+  participantes     GastoParticipante[]
 
   @@index([juntadaId])
-  @@index([compradorUserId])
+  @@index([pagadoPorUserId])
+  @@index([pagadoPorInvitadoId])
 }
 
-model GastoExclusion {
-  id      String @id @default(cuid())
-  gastoId String
-  userId  String
+// Entre quiénes se divide un gasto. "Se llevó su bebida" = no está en ese gasto;
+// "promo de fernet entre 3" = solo esos 3.
+model GastoParticipante {
+  id         String  @id @default(cuid())
+  gastoId    String
+  userId     String?
+  invitadoId String?
 
-  gasto Gasto @relation(fields: [gastoId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gasto    Gasto     @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitado Invitado? @relation(fields: [invitadoId], references: [id], onDelete: Cascade)
 
   @@unique([gastoId, userId])
-  @@index([gastoId])
+  @@unique([gastoId, invitadoId])
   @@index([userId])
+  @@index([invitadoId])
+}
+
+// Invitado de honor de una juntada (cumpleaños, anda corto): no paga su parte.
+// Sin cubiertoPor, su parte de cada gasto se reparte entre los otros participantes;
+// con cubiertoPor, la paga esa persona.
+model Bonificado {
+  id                String  @id @default(cuid())
+  juntadaId         String
+  userId            String?
+  invitadoId        String?
+  cubiertoPorUserId String?
+
+  juntada     Juntada   @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  user        User?     @relation("BonificadoUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitado    Invitado? @relation(fields: [invitadoId], references: [id], onDelete: Cascade)
+  cubiertoPor User?     @relation("BonificadoCubiertoPor", fields: [cubiertoPorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([juntadaId, userId])
+  @@unique([juntadaId, invitadoId])
 }

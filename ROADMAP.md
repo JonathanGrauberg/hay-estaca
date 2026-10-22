@@ -19,24 +19,16 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
 - Juntadas: lista (próximas, pasadas, archivadas), editar, archivar, borrar, anfitrión.
 - Invitados por juntada (solo nombre, sin login).
 - Grupo: editar y sacar integrantes. "Yo": mis datos, cambiar PIN, cerrar sesión.
+- Cuentas claras por juntada: gastos editables (quién pagó, entre quiénes se divide),
+  invitados de honor (no pagan; se reparte o lo cubre alguien), saldos y transferencias
+  mínimas con botón para copiar el alias. Resumen general en /cuentas.
+- Alias/CVU en "Yo" (solo lo edita el dueño).
+- Calculadora rápida.
 
 ## Próximos pasos (en orden)
 
-### 3. Cuentas claras + calculadora
-- Cada gasto: quién pagó, monto, concepto y **entre quiénes se divide**
-  (reemplaza el modelo de exclusiones por uno de participantes).
-  - Por defecto: los que confirmaron + invitados.
-  - "Se llevó su bebida": se lo saca de ese gasto.
-  - "Promo de fernet entre 3": el gasto se divide solo entre esos 3.
-  - **Invitado de honor** (cumpleaños, anda corto): no paga; su parte se reparte
-    entre el resto o la absorbe alguien en particular.
-- Todo editable.
-- Resumen de saldos con el mínimo de transferencias y botón para copiar alias/CVU.
-- Calculadora rápida (suma, resta, multiplicación, división) sin salir de la app.
-
 ### 4. Ajustes / mi perfil
 - Fecha de cumpleaños + aviso en pantalla (24h antes) y botón "Vaca para el regalo".
-- Alias/CVU para las transferencias.
 - Foto de perfil: cada uno sube la suya, y cualquiera puede **proponerle** una foto a otro;
   queda pendiente hasta que el dueño la acepta o la rechaza.
 - Imágenes en Cloudflare R2 (ver "Decisiones").

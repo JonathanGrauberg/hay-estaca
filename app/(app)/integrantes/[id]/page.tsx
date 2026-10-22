@@ -21,7 +21,14 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
 
   const integrante = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, nombre: true, apodo: true, avatarUrl: true, telefono: true },
+    select: {
+      id: true,
+      nombre: true,
+      apodo: true,
+      avatarUrl: true,
+      telefono: true,
+      _count: { select: { gastosPagados: true } },
+    },
   });
 
   if (!integrante) {
@@ -53,14 +60,21 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
       />
 
       <section className="flex flex-col gap-2 border-t border-border pt-6">
-        <FormConfirmar
-          action={borrarIntegrante.bind(null, integrante.id)}
-          mensaje={`¿Sacar a ${apodo} del grupo? Se borran sus asistencias y deja de poder entrar.`}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:border-primary"
-        >
-          <Trash2 className="h-4 w-4" />
-          Sacar del grupo
-        </FormConfirmar>
+        {integrante._count.gastosPagados > 0 ? (
+          <p className="text-center text-sm text-muted-foreground-2">
+            {apodo} pagó gastos en alguna juntada: para sacarlo del grupo primero hay que
+            editar o borrar esos gastos.
+          </p>
+        ) : (
+          <FormConfirmar
+            action={borrarIntegrante.bind(null, integrante.id)}
+            mensaje={`¿Sacar a ${apodo} del grupo? Se borran sus asistencias y deja de poder entrar.`}
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:border-primary"
+          >
+            <Trash2 className="h-4 w-4" />
+            Sacar del grupo
+          </FormConfirmar>
+        )}
       </section>
     </main>
   );

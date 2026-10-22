@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, House, User, Users } from "lucide-react";
+import { CalendarDays, House, User, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Se van sumando secciones (Cuentas, Juegos) a medida que existan; mientras tanto
+// Se van sumando secciones (Juegos, ...) a medida que existan; mientras tanto
 // están como cards "próximamente" en el inicio, no como botones muertos acá.
 const ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Inicio", icon: House },
   { href: "/juntadas", label: "Juntadas", icon: CalendarDays },
+  { href: "/cuentas", label: "Cuentas", icon: Wallet },
   { href: "/integrantes", label: "Grupo", icon: Users },
   { href: "/perfil", label: "Yo", icon: User },
 ];
