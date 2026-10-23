@@ -161,7 +161,7 @@ export default async function InicioPage() {
             detalle="Quién le debe a quién"
             href="/cuentas"
           />
-          <CardSeccion icon={Dices} titulo="Juegos" detalle="Próximamente" />
+          <CardSeccion icon={Dices} titulo="Juegos" detalle="Truco y más" href="/juegos" />
           <CardSeccion icon={Vote} titulo="Votaciones" detalle="Próximamente" />
           <CardSeccion icon={Trophy} titulo="Estadísticas" detalle="Próximamente" />
           <CardSeccion

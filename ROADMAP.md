@@ -23,7 +23,10 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
   invitados de honor (no pagan; se reparte o lo cubre alguien), saldos y transferencias
   mínimas con botón para copiar el alias. Resumen general en /cuentas.
 - Alias/CVU en "Yo" (solo lo edita el dueño).
-- Calculadora rápida.
+- Calculadora rápida (con teclado en PC).
+- Versión de escritorio: barra lateral y pantallas en dos columnas.
+- Anotador de truco (/juegos/truco): fósforos, a 30 o a 15, malas y buenas, reglas con
+  la falta envido calculada en vivo. La partida se guarda en el celular.
 
 ## Próximos pasos (en orden)
 
@@ -34,8 +37,6 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
 - Imágenes en Cloudflare R2 (ver "Decisiones").
 
 ### 5. Juegos
-- Anotador de truco: NOS / ELLOS, fósforos (4 rayas + diagonal = 5), malas/buenas a los 15,
-  switch "a 30 / a 15", botones + y −, reglas de envido/truco y reiniciar.
 - **¿Quién soy? (el de la frente)**: se elige quiénes juegan (confirmados + invitados),
   a cada uno se le asigna un personaje; cada celular muestra los personajes de los demás
   pero no el propio. Las preguntas de sí/no se hacen en voz alta; la app marca quién adivinó.
