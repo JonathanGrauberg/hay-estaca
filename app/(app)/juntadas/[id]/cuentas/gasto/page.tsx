@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { guardarGasto } from "@/lib/actions/gastos";
@@ -18,7 +18,10 @@ export default async function NuevoGastoPage({ params }: PageProps<"/juntadas/[i
     notFound();
   }
 
-  const { personas } = await cargarCuentas(juntada.id);
+  const { personas, categorias, estado } = await cargarCuentas(juntada.id);
+  if (estado !== "abiertas") {
+    redirect(`/juntadas/${juntada.id}/cuentas`);
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-xl lg:pt-12">
@@ -26,11 +29,17 @@ export default async function NuevoGastoPage({ params }: PageProps<"/juntadas/[i
       <FormGasto
         accion={guardarGasto.bind(null, juntada.id, null)}
         personas={personas}
+        categorias={categorias.map(({ id, nombre, participantes }) => ({
+          id,
+          nombre,
+          cantidad: participantes.length,
+        }))}
         labelBoton="Cargar gasto"
         valores={{
           concepto: "",
           monto: "",
           pagadoPor: personaId({ userId: usuario.id, invitadoId: null }),
+          categoria: categorias[0]?.id ?? "",
           participantes: personas.filter((persona) => persona.vaPorDefecto).map((persona) => persona.id),
         }}
       />

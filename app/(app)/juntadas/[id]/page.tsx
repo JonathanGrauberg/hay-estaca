@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { formatFechaLarga } from "@/lib/utils";
 import { formatearPesos } from "@/lib/cuentas/dinero";
+import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
+import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
 import { ChecklistSection } from "@/components/juntadas/ChecklistSection";
 import { InvitadosSection } from "@/components/juntadas/InvitadosSection";
@@ -20,7 +22,7 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
   const usuario = await requireUsuario();
   const { id } = await params;
 
-  const [juntada, miembros, checklistItems] = await Promise.all([
+  const [juntada, miembros, checklistItems, encargado] = await Promise.all([
     prisma.juntada.findUnique({
       where: { id },
       include: {
@@ -39,6 +41,7 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
       orderBy: { createdAt: "asc" },
       include: { asignadoA: usuarioBasico },
     }),
+    encargadoDeJuntada(id),
   ]);
 
   if (!juntada) {
@@ -123,6 +126,8 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
           </Link>
+
+          <EncargadoCuentas juntadaId={juntada.id} encargado={encargado} />
 
           <AsistenciaPanel
             juntadaId={juntada.id}

@@ -7,11 +7,18 @@ interface FormConfirmarProps {
   // Si se pasa, pide confirmación antes de mandar (para borrar, archivar, etc.).
   mensaje?: string;
   className?: string;
+  disabled?: boolean;
   children: ReactNode;
 }
 
 // Un botón que dispara una Server Action, con un confirm() opcional antes.
-export function FormConfirmar({ action, mensaje, className, children }: FormConfirmarProps) {
+export function FormConfirmar({
+  action,
+  mensaje,
+  className,
+  disabled,
+  children,
+}: FormConfirmarProps) {
   return (
     <form
       action={action}
@@ -21,7 +28,7 @@ export function FormConfirmar({ action, mensaje, className, children }: FormConf
         }
       }}
     >
-      <button type="submit" className={className}>
+      <button type="submit" disabled={disabled} className={className}>
         {children}
       </button>
     </form>

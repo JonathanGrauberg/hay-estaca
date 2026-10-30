@@ -5,6 +5,7 @@ import { cerrarSesion } from "@/lib/actions/auth";
 import { editarIntegrante } from "@/lib/actions/usuarios";
 import { Avatar } from "@/components/juntadas/Avatar";
 import { FormAlias } from "@/components/integrantes/FormAlias";
+import { EncargadoFijo } from "@/components/integrantes/EncargadoFijo";
 import { FormCambiarPin } from "@/components/integrantes/FormCambiarPin";
 import { FormEditarIntegrante } from "@/components/integrantes/FormEditarIntegrante";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
@@ -13,9 +14,9 @@ export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
   const usuario = await requireUsuario();
-  const { telefono, aliasCvu } = await prisma.user.findUniqueOrThrow({
+  const { telefono, aliasCvu, encargadoCuentas } = await prisma.user.findUniqueOrThrow({
     where: { id: usuario.id },
-    select: { telefono: true, aliasCvu: true },
+    select: { telefono: true, aliasCvu: true, encargadoCuentas: true },
   });
 
   return (
@@ -53,6 +54,12 @@ export default async function PerfilPage() {
         </p>
         <FormAlias aliasCvu={aliasCvu ?? ""} />
       </section>
+
+      <EncargadoFijo
+        userId={usuario.id}
+        apodo={usuario.apodo || usuario.nombre}
+        encargado={encargadoCuentas}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">

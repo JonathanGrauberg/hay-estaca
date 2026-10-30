@@ -23,6 +23,9 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
   invitados de honor (no pagan; se reparte o lo cubre alguien), saldos y transferencias
   mínimas con botón para copiar el alias. Resumen general en /cuentas.
 - Alias/CVU en "Yo" (solo lo edita el dueño).
+- "La casa de la moneda": ¿qué dividimos? (categorías con check de quién participó),
+  cada uno carga lo que puso, el encargado divide, se tilda cada pago con check verde y
+  el encargado cierra. Encargados fijos del grupo; si ninguno va, aviso y "Me hago cargo".
 - Calculadora rápida (con teclado en PC).
 - Versión de escritorio: barra lateral y pantallas en dos columnas.
 - Anotador de truco (/juegos/truco): fósforos, a 30 o a 15, malas y buenas, reglas con

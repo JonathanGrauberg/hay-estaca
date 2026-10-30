@@ -27,7 +27,13 @@ export default async function CuentasPage() {
   const resumenes = await Promise.all(
     juntadas.map(async (juntada) => {
       const cuentas = await cargarCuentas(juntada.id);
-      return { ...juntada, total: cuentas.totalCentavos, miSaldo: cuentas.saldo[yo] ?? 0 };
+      // Lo pendiente: ya descontado lo que se pagó.
+      return {
+        ...juntada,
+        estado: cuentas.estado,
+        total: cuentas.totalCentavos,
+        miSaldo: cuentas.pendiente[yo] ?? 0,
+      };
     })
   );
 
@@ -76,6 +82,8 @@ export default async function CuentasPage() {
                   <p className="text-xs text-muted-foreground-2">
                     {formatFechaCorta(r.fecha)} ·{" "}
                     {r.total > 0 ? `Gastado ${formatearPesos(r.total)}` : "Sin gastos"}
+                    {r.estado === "divididas" && " · dividido"}
+                    {r.estado === "cerradas" && " · cerrado"}
                   </p>
                 </div>
                 {r.miSaldo !== 0 && (

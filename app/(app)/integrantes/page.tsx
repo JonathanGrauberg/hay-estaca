@@ -13,7 +13,7 @@ export default async function IntegrantesPage() {
   const usuario = await requireUsuario();
   const miembros = await prisma.user.findMany({
     orderBy: { nombre: "asc" },
-    select: { id: true, nombre: true, apodo: true, avatarUrl: true },
+    select: { id: true, nombre: true, apodo: true, avatarUrl: true, encargadoCuentas: true },
   });
 
   return (
@@ -41,7 +41,10 @@ export default async function IntegrantesPage() {
                       <span className="text-muted-foreground-2"> (vos)</span>
                     )}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground-2">{miembro.nombre}</p>
+                  <p className="truncate text-xs text-muted-foreground-2">
+                    {miembro.nombre}
+                    {miembro.encargadoCuentas && " · casa de la moneda"}
+                  </p>
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
               </Link>

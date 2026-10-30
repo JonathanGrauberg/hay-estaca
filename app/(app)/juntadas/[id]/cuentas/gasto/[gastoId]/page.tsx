@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { requireUsuario } from "@/lib/auth";
 import { borrarGasto, guardarGasto } from "@/lib/actions/gastos";
@@ -16,10 +16,13 @@ export default async function EditarGastoPage({
   await requireUsuario();
   const { id, gastoId } = await params;
 
-  const { personas, gastos } = await cargarCuentas(id);
+  const { personas, gastos, categorias, estado } = await cargarCuentas(id);
   const gasto = gastos.find((g) => g.id === gastoId);
   if (!gasto) {
     notFound();
+  }
+  if (estado !== "abiertas") {
+    redirect(`/juntadas/${id}/cuentas`);
   }
 
   return (
@@ -28,11 +31,17 @@ export default async function EditarGastoPage({
       <FormGasto
         accion={guardarGasto.bind(null, id, gasto.id)}
         personas={personas}
+        categorias={categorias.map(({ id, nombre, participantes }) => ({
+          id,
+          nombre,
+          cantidad: participantes.length,
+        }))}
         labelBoton="Guardar cambios"
         valores={{
           concepto: gasto.concepto,
           monto: centavosAInput(gasto.montoCentavos),
           pagadoPor: gasto.pagadoPor,
+          categoria: gasto.categoriaId ?? "",
           participantes: gasto.participantes,
         }}
       />

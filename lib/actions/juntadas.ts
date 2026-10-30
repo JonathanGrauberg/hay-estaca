@@ -132,7 +132,11 @@ export async function borrarInvitado(juntadaId: string, invitadoId: string, _for
 
   // Si pagó algún gasto no se puede sacar (rompería las cuentas); la pantalla ya
   // oculta la X en ese caso.
-  if ((await prisma.gasto.count({ where: { pagadoPorInvitadoId: invitadoId } })) > 0) {
+  const [gastos, pagos] = await Promise.all([
+    prisma.gasto.count({ where: { pagadoPorInvitadoId: invitadoId } }),
+    prisma.pago.count({ where: { OR: [{ deInvitadoId: invitadoId }, { aInvitadoId: invitadoId }] } }),
+  ]);
+  if (gastos + pagos > 0) {
     return;
   }
 

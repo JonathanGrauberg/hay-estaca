@@ -22,6 +22,14 @@ enum EstadoAsistencia {
   en_duda
 }
 
+// Cuentas de una juntada: se cargan gastos (abiertas), el encargado las divide y
+// se van tildando los pagos (divididas), y cuando están todos a mano las cierra.
+enum EstadoCuentas {
+  abiertas
+  divididas
+  cerradas
+}
+
 enum TipoChecklistItem {
   grupal
   individual
@@ -41,36 +49,50 @@ model User {
   bloqueadoHasta   DateTime?
   // Alias o CVU para que le transfieran en las cuentas. Solo lo edita el dueño.
   aliasCvu         String?
+  // Encargado fijo de "la casa de la moneda": queda a cargo de las cuentas de cada
+  // juntada a la que confirma que va.
+  encargadoCuentas Boolean   @default(false)
 
   asistencias             Asistencia[]
-  checklistItemsAsignados ChecklistItem[]     @relation("ChecklistAsignado")
-  gastosPagados           Gasto[]             @relation("GastoPagadoPorUser")
+  checklistItemsAsignados ChecklistItem[]         @relation("ChecklistAsignado")
+  gastosPagados           Gasto[]                 @relation("GastoPagadoPorUser")
   gastosParticipa         GastoParticipante[]
-  bonificaciones          Bonificado[]        @relation("BonificadoUser")
-  bonificacionesCubiertas Bonificado[]        @relation("BonificadoCubiertoPor")
-  juntadasAnfitrion       Juntada[]           @relation("JuntadaAnfitrion")
-  invitadosTraidos        Invitado[]          @relation("InvitadoTraidoPor")
+  bonificaciones          Bonificado[]            @relation("BonificadoUser")
+  bonificacionesCubiertas Bonificado[]            @relation("BonificadoCubiertoPor")
+  juntadasAnfitrion       Juntada[]               @relation("JuntadaAnfitrion")
+  invitadosTraidos        Invitado[]              @relation("InvitadoTraidoPor")
+  juntadasEncargado       Juntada[]               @relation("JuntadaEncargadoCuentas")
+  categoriasParticipa     CategoriaParticipante[]
+  pagosHechos             Pago[]                  @relation("PagoDeUser")
+  pagosRecibidos          Pago[]                  @relation("PagoAUser")
 }
 
 model Juntada {
-  id          String        @id @default(cuid())
-  nombre      String
-  fecha       DateTime      @db.Date
-  hora        String
-  ubicacion   String
-  mensajeFomo String?
+  id                 String        @id @default(cuid())
+  nombre             String
+  fecha              DateTime      @db.Date
+  hora               String
+  ubicacion          String
+  mensajeFomo        String?
   // Próxima/pasada se calcula por la fecha; el estado solo importa para "archivada".
-  estado      EstadoJuntada @default(proxima)
+  estado             EstadoJuntada @default(proxima)
   // Quién la organiza o pone la casa (para las estadísticas de anfitrión).
-  anfitrionId String?
-  createdAt   DateTime      @default(now())
+  anfitrionId        String?
+  cuentasEstado      EstadoCuentas @default(abiertas)
+  // Quién se hizo cargo de las cuentas. Si es null, queda el primer encargado fijo
+  // del grupo que confirmó que va (lib/cuentas/encargado.ts).
+  encargadoCuentasId String?
+  createdAt          DateTime      @default(now())
 
-  anfitrion      User?           @relation("JuntadaAnfitrion", fields: [anfitrionId], references: [id], onDelete: SetNull)
-  invitados      Invitado[]
-  asistencias    Asistencia[]
-  checklistItems ChecklistItem[]
-  gastos         Gasto[]
-  bonificados    Bonificado[]
+  anfitrion        User?           @relation("JuntadaAnfitrion", fields: [anfitrionId], references: [id], onDelete: SetNull)
+  encargadoCuentas User?           @relation("JuntadaEncargadoCuentas", fields: [encargadoCuentasId], references: [id], onDelete: SetNull)
+  categorias       Categoria[]
+  pagos            Pago[]
+  invitados        Invitado[]
+  asistencias      Asistencia[]
+  checklistItems   ChecklistItem[]
+  gastos           Gasto[]
+  bonificados      Bonificado[]
 
   @@index([estado])
   @@index([fecha])
@@ -88,9 +110,12 @@ model Invitado {
   juntada   Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
   traidoPor User?   @relation("InvitadoTraidoPor", fields: [traidoPorId], references: [id], onDelete: SetNull)
 
-  gastosPagados   Gasto[]             @relation("GastoPagadoPorInvitado")
-  gastosParticipa GastoParticipante[]
-  bonificaciones  Bonificado[]
+  gastosPagados       Gasto[]                 @relation("GastoPagadoPorInvitado")
+  gastosParticipa     GastoParticipante[]
+  bonificaciones      Bonificado[]
+  categoriasParticipa CategoriaParticipante[]
+  pagosHechos         Pago[]                  @relation("PagoDeInvitado")
+  pagosRecibidos      Pago[]                  @relation("PagoAInvitado")
 
   @@index([juntadaId])
 }
@@ -136,14 +161,19 @@ model Gasto {
   montoCentavos       Int
   pagadoPorUserId     String?
   pagadoPorInvitadoId String?
+  // Con categoría, se divide entre los tildados de la categoría; sin categoría,
+  // entre los participantes elegidos a mano (promo entre 3, gastos viejos).
+  categoriaId         String?
   createdAt           DateTime @default(now())
 
   juntada           Juntada             @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
   pagadoPorUser     User?               @relation("GastoPagadoPorUser", fields: [pagadoPorUserId], references: [id], onDelete: Restrict)
   pagadoPorInvitado Invitado?           @relation("GastoPagadoPorInvitado", fields: [pagadoPorInvitadoId], references: [id], onDelete: Restrict)
   participantes     GastoParticipante[]
+  categoria         Categoria?          @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
 
   @@index([juntadaId])
+  @@index([categoriaId])
   @@index([pagadoPorUserId])
   @@index([pagadoPorInvitadoId])
 }
@@ -183,4 +213,59 @@ model Bonificado {
 
   @@unique([juntadaId, userId])
   @@unique([juntadaId, invitadoId])
+}
+
+// "¿Qué dividimos?": comida, bebida, picada... Cada una con los que participaron.
+model Categoria {
+  id        String   @id @default(cuid())
+  juntadaId String
+  nombre    String
+  createdAt DateTime @default(now())
+
+  juntada       Juntada                 @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  participantes CategoriaParticipante[]
+  gastos        Gasto[]
+
+  @@index([juntadaId])
+}
+
+model CategoriaParticipante {
+  id          String  @id @default(cuid())
+  categoriaId String
+  userId      String?
+  invitadoId  String?
+
+  categoria Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitado  Invitado? @relation(fields: [invitadoId], references: [id], onDelete: Cascade)
+
+  @@unique([categoriaId, userId])
+  @@unique([categoriaId, invitadoId])
+  @@index([userId])
+  @@index([invitadoId])
+}
+
+// Una transferencia que ya se hizo (el check verde). Se descuenta de los saldos, así
+// que las transferencias que faltan se recalculan solas aunque cambie algún gasto.
+model Pago {
+  id            String   @id @default(cuid())
+  juntadaId     String
+  deUserId      String?
+  deInvitadoId  String?
+  aUserId       String?
+  aInvitadoId   String?
+  montoCentavos Int
+  createdAt     DateTime @default(now())
+
+  juntada    Juntada   @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  deUser     User?     @relation("PagoDeUser", fields: [deUserId], references: [id], onDelete: Restrict)
+  deInvitado Invitado? @relation("PagoDeInvitado", fields: [deInvitadoId], references: [id], onDelete: Restrict)
+  aUser      User?     @relation("PagoAUser", fields: [aUserId], references: [id], onDelete: Restrict)
+  aInvitado  Invitado? @relation("PagoAInvitado", fields: [aInvitadoId], references: [id], onDelete: Restrict)
+
+  @@index([juntadaId])
+  @@index([deUserId])
+  @@index([aUserId])
+  @@index([deInvitadoId])
+  @@index([aInvitadoId])
 }

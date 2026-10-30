@@ -138,3 +138,20 @@ export function calcularTransferencias(saldo: Map<PersonaId, number>): Transfere
 
   return transferencias;
 }
+
+export interface PagoCalculo {
+  de: PersonaId;
+  a: PersonaId;
+  centavos: number;
+}
+
+// Descuenta las transferencias ya hechas: el que pagó queda con menos deuda y el que
+// cobró con menos a favor. Lo que queda es lo pendiente.
+export function aplicarPagos(saldo: Map<PersonaId, number>, pagos: PagoCalculo[]) {
+  const pendiente = new Map(saldo);
+  for (const pago of pagos) {
+    sumar(pendiente, pago.de, pago.centavos);
+    sumar(pendiente, pago.a, -pago.centavos);
+  }
+  return pendiente;
+}

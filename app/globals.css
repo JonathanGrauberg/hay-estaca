@@ -33,6 +33,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-pagado: var(--pagado);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -67,6 +68,8 @@
   --accent: #221e19;
   --accent-foreground: #f5f0e8;
   --destructive: #ff2e1f;
+  /* El check verde de "ya pagó" en las cuentas: el único verde de la app. */
+  --pagado: #3ecf6e;
   --border: #2a251f;
   --input: #2a251f;
   --ring: #ff2e1f;
@@ -93,4 +96,16 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+}
+
+/*
+ * Barras de scroll finitas y del color de la app (sin flechas ni fondo blanco),
+ * para la fila de avatares y cualquier otra lista que se deslice.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*:hover {
+  scrollbar-color: var(--muted-foreground-2) transparent;
 }

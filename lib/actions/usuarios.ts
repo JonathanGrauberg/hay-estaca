@@ -109,7 +109,11 @@ export async function borrarIntegrante(userId: string, _formData: FormData) {
 
   // Si pagó gastos no se puede borrar: se romperían las cuentas (el schema lo
   // impide con Restrict). La pantalla ya oculta el botón en ese caso.
-  if ((await prisma.gasto.count({ where: { pagadoPorUserId: userId } })) > 0) {
+  const [gastos, pagos] = await Promise.all([
+    prisma.gasto.count({ where: { pagadoPorUserId: userId } }),
+    prisma.pago.count({ where: { OR: [{ deUserId: userId }, { aUserId: userId }] } }),
+  ]);
+  if (gastos + pagos > 0) {
     return;
   }
 

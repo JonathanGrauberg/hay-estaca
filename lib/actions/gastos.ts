@@ -31,6 +31,19 @@ function leerPersona(valor: string, validas: Set<string>): PersonaRef | null {
   return validas.has(valor) ? parsearPersona(valor) : null;
 }
 
+// Una vez divididas, los gastos quedan quietos hasta que el encargado vuelva a abrir
+// la carga: si no, las transferencias cambiarían mientras se están pagando.
+async function cuentasAbiertas(juntadaId: string) {
+  const juntada = await prisma.juntada.findUnique({
+    where: { id: juntadaId },
+    select: { cuentasEstado: true },
+  });
+  return juntada?.cuentasEstado === "abiertas";
+}
+
+const ERROR_DIVIDIDAS =
+  "Las cuentas ya se dividieron: pedile al encargado que vuelva a abrir la carga.";
+
 export type GuardarGastoState = { error: string } | undefined;
 
 export async function guardarGasto(
@@ -42,7 +55,16 @@ export async function guardarGasto(
 ): Promise<GuardarGastoState> {
   await requireUsuario();
 
-  const concepto = String(formData.get("concepto") ?? "").trim();
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return { error: ERROR_DIVIDIDAS };
+  }
+
+  // Vacío = "elegir a mano" (una promo entre 3, o los gastos de antes de las categorías).
+  const categoriaId = String(formData.get("categoria") ?? "");
+  const categoria = categoriaId
+    ? await prisma.categoria.findFirst({ where: { id: categoriaId, juntadaId } })
+    : null;
+  const concepto = String(formData.get("concepto") ?? "").trim() || categoria?.nombre || "";
   const montoCentavos = parsearMonto(String(formData.get("monto") ?? ""));
   const validas = await personasDeJuntada(juntadaId);
   const pagador = leerPersona(String(formData.get("pagadoPor") ?? ""), validas);
@@ -50,6 +72,9 @@ export async function guardarGasto(
     .map((valor) => leerPersona(valor, validas))
     .filter((persona): persona is PersonaRef => persona !== null);
 
+  if (categoriaId && !categoria) {
+    return { error: "Esa categoría ya no existe." };
+  }
   if (!concepto) {
     return { error: "Poné qué se compró (ej: carne, fernet)." };
   }
@@ -59,7 +84,7 @@ export async function guardarGasto(
   if (!pagador) {
     return { error: "Elegí quién pagó." };
   }
-  if (participantes.length === 0) {
+  if (!categoria && participantes.length === 0) {
     return { error: "Marcá al menos una persona entre la que se divide." };
   }
 
@@ -68,7 +93,10 @@ export async function guardarGasto(
     montoCentavos,
     pagadoPorUserId: pagador.userId,
     pagadoPorInvitadoId: pagador.invitadoId,
+    categoriaId: categoria?.id ?? null,
   };
+  // Con categoría, los participantes salen de la categoría: no se guardan aparte.
+  const propios = categoria ? [] : participantes;
 
   if (gastoId) {
     // Se reemplazan los participantes completos: es más simple que calcular el diff
@@ -77,12 +105,12 @@ export async function guardarGasto(
       prisma.gasto.update({ where: { id: gastoId, juntadaId }, data: datos }),
       prisma.gastoParticipante.deleteMany({ where: { gastoId } }),
       prisma.gastoParticipante.createMany({
-        data: participantes.map((persona) => ({ gastoId, ...persona })),
+        data: propios.map((persona) => ({ gastoId, ...persona })),
       }),
     ]);
   } else {
     await prisma.gasto.create({
-      data: { juntadaId, ...datos, participantes: { create: participantes } },
+      data: { juntadaId, ...datos, participantes: { create: propios } },
     });
   }
 
@@ -93,9 +121,11 @@ export async function guardarGasto(
 export async function borrarGasto(juntadaId: string, gastoId: string, _formData: FormData) {
   await requireUsuario();
 
-  await prisma.gasto.deleteMany({ where: { id: gastoId, juntadaId } });
+  if (await cuentasAbiertas(juntadaId)) {
+    await prisma.gasto.deleteMany({ where: { id: gastoId, juntadaId } });
+    revalidarCuentas(juntadaId);
+  }
 
-  revalidarCuentas(juntadaId);
   redirect(`/juntadas/${juntadaId}/cuentas`);
 }
 
@@ -109,6 +139,10 @@ export async function bonificar(
   formData: FormData
 ): Promise<BonificarState> {
   await requireUsuario();
+
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return { error: ERROR_DIVIDIDAS };
+  }
 
   const validas = await personasDeJuntada(juntadaId);
   const persona = leerPersona(String(formData.get("persona") ?? ""), validas);
@@ -142,7 +176,158 @@ export async function bonificar(
 export async function quitarBonificado(juntadaId: string, bonificadoId: string, _formData: FormData) {
   await requireUsuario();
 
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return;
+  }
+
   await prisma.bonificado.deleteMany({ where: { id: bonificadoId, juntadaId } });
+
+  revalidarCuentas(juntadaId);
+}
+
+export type CrearCategoriasState = { error: string } | undefined;
+
+// "¿Qué dividimos?": acepta varias separadas por coma ("comida, bebida, picada").
+// Arrancan con todos los que confirmaron que van (y los invitados) tildados; si nadie
+// confirmó, con todo el grupo. Después se destilda al que no participó.
+export async function crearCategorias(
+  juntadaId: string,
+  _prevState: CrearCategoriasState,
+  formData: FormData
+): Promise<CrearCategoriasState> {
+  await requireUsuario();
+
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return { error: ERROR_DIVIDIDAS };
+  }
+
+  const existentes = await prisma.categoria.findMany({
+    where: { juntadaId },
+    select: { nombre: true },
+  });
+  const yaEstan = new Set(existentes.map((categoria) => categoria.nombre.toLowerCase()));
+  const nombres = [
+    ...new Map(
+      // getAll: llegan el input y, si se tocó una sugerencia, también el botón.
+      formData
+        .getAll("nombres")
+        .map(String)
+        .join(",")
+        .split(",")
+        .map((nombre) => nombre.trim().slice(0, 40))
+        .filter((nombre) => nombre && !yaEstan.has(nombre.toLowerCase()))
+        .map((nombre) => [nombre.toLowerCase(), nombre[0].toUpperCase() + nombre.slice(1)])
+    ).values(),
+  ];
+
+  if (nombres.length === 0) {
+    return { error: "Escribí qué se divide (ej: comida, bebida) o una que no esté." };
+  }
+
+  const [usuarios, confirmados, invitados] = await Promise.all([
+    prisma.user.findMany({ select: { id: true } }),
+    prisma.asistencia.findMany({ where: { juntadaId, estado: "voy" }, select: { userId: true } }),
+    prisma.invitado.findMany({ where: { juntadaId }, select: { id: true } }),
+  ]);
+  const integrantes =
+    confirmados.length > 0 ? confirmados.map((a) => a.userId) : usuarios.map((u) => u.id);
+  const participantes = [
+    ...integrantes.map((userId) => ({ userId, invitadoId: null })),
+    ...invitados.map((invitado) => ({ userId: null, invitadoId: invitado.id })),
+  ];
+
+  await prisma.$transaction(
+    nombres.map((nombre) =>
+      prisma.categoria.create({
+        data: { juntadaId, nombre, participantes: { create: participantes } },
+      })
+    )
+  );
+
+  revalidarCuentas(juntadaId);
+}
+
+export async function borrarCategoria(juntadaId: string, categoriaId: string, _formData: FormData) {
+  await requireUsuario();
+
+  // Si tiene gastos no se borra: quedarían sin saber entre quiénes se dividen.
+  const gastos = await prisma.gasto.count({ where: { categoriaId } });
+  if (gastos > 0 || !(await cuentasAbiertas(juntadaId))) {
+    return;
+  }
+
+  await prisma.categoria.deleteMany({ where: { id: categoriaId, juntadaId } });
+
+  revalidarCuentas(juntadaId);
+}
+
+async function categoriaYPersonas(juntadaId: string, categoriaId: string) {
+  const [categoria, validas] = await Promise.all([
+    prisma.categoria.findFirst({ where: { id: categoriaId, juntadaId }, select: { id: true } }),
+    personasDeJuntada(juntadaId),
+  ]);
+  return { categoria, validas };
+}
+
+// Tilda o destilda a una persona de una categoría. Recibe el estado final (no
+// "alternar") para que dos toques rápidos o dos celulares a la vez no se pisen.
+export async function marcarEnCategoria(
+  juntadaId: string,
+  categoriaId: string,
+  persona: string,
+  incluido: boolean
+) {
+  await requireUsuario();
+
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return;
+  }
+
+  const { categoria, validas } = await categoriaYPersonas(juntadaId, categoriaId);
+  const ref = leerPersona(persona, validas);
+  if (!categoria || !ref) {
+    return;
+  }
+
+  const donde = { categoriaId, userId: ref.userId, invitadoId: ref.invitadoId };
+  if (incluido) {
+    const existente = await prisma.categoriaParticipante.findFirst({ where: donde });
+    if (!existente) {
+      await prisma.categoriaParticipante.create({ data: donde });
+    }
+  } else {
+    await prisma.categoriaParticipante.deleteMany({ where: donde });
+  }
+
+  revalidarCuentas(juntadaId);
+}
+
+// Atajos "Todos" / "Nadie" de una categoría.
+export async function marcarTodosEnCategoria(
+  juntadaId: string,
+  categoriaId: string,
+  personas: string[]
+) {
+  await requireUsuario();
+
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return;
+  }
+
+  const { categoria, validas } = await categoriaYPersonas(juntadaId, categoriaId);
+  if (!categoria) {
+    return;
+  }
+  const refs = [...new Set(personas)]
+    .map((valor) => leerPersona(valor, validas))
+    .filter((persona): persona is PersonaRef => persona !== null);
+
+  await prisma.$transaction([
+    prisma.categoriaParticipante.deleteMany({ where: { categoriaId } }),
+    prisma.categoriaParticipante.createMany({
+      data: refs.map((ref) => ({ categoriaId, ...ref })),
+    }),
+  ]);
 
   revalidarCuentas(juntadaId);
 }

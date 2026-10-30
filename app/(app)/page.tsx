@@ -14,6 +14,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { hoyComoFechaDb } from "@/lib/utils";
+import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
+import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AvatarRow } from "@/components/juntadas/AvatarRow";
 import { JuntadaCard } from "@/components/juntadas/JuntadaCard";
 import { EmptyState } from "@/components/juntadas/EmptyState";
@@ -58,6 +60,9 @@ export default async function InicioPage() {
   ]);
 
   const [juntadaDestacada, ...otrasProximas] = juntadasProximas;
+  // En el inicio solo se avisa si falta; quién es se ve en la juntada.
+  const faltaEncargado =
+    juntadaDestacada !== undefined && !(await encargadoDeJuntada(juntadaDestacada.id));
 
   const confirmadosIds = new Set(
     (juntadaDestacada?.asistencias ?? [])
@@ -90,7 +95,7 @@ export default async function InicioPage() {
         </h1>
       </header>
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[3fr_2fr] lg:items-start lg:gap-8">
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6">
           <RecordatorioBanner items={checklistPendientes} apodo={usuario.apodo || usuario.nombre} />
 
@@ -125,6 +130,9 @@ export default async function InicioPage() {
                   invitados={juntadaDestacada._count.invitados}
                 />
                 <RsvpBotones juntadaId={juntadaDestacada.id} estadoActual={miEstado} />
+                {faltaEncargado && (
+                  <EncargadoCuentas juntadaId={juntadaDestacada.id} encargado={null} />
+                )}
               </div>
             ) : (
               <EmptyState

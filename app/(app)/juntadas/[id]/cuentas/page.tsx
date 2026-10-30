@@ -1,20 +1,33 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Pencil, Plus, Receipt } from "lucide-react";
+import { ArrowRight, Check, CircleCheck, Pencil, Plus, Receipt, Undo2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import {
+  cerrarCuentas,
+  deshacerPago,
+  dividirGastos,
+  marcarPagado,
+  reabrirCuentas,
+  volverACargar,
+} from "@/lib/actions/casaMoneda";
 import { cargarCuentas } from "@/lib/cuentas/datos";
 import { formatearPesos } from "@/lib/cuentas/dinero";
 import { personaId } from "@/lib/cuentas/personas";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "@/components/cuentas/BotonCopiar";
 import { BonificadosSection } from "@/components/cuentas/BonificadosSection";
+import { CategoriasSection } from "@/components/cuentas/CategoriasSection";
+import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { EmptyState } from "@/components/juntadas/EmptyState";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
+import { FormConfirmar } from "@/components/ui/FormConfirmar";
 
 export const dynamic = "force-dynamic";
 
 const tituloSeccion = "text-xs font-semibold tracking-[0.15em] text-muted-foreground-2";
+const botonSecundario =
+  "flex w-full items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:border-primary hover:text-foreground";
 
 export default async function CuentasJuntadaPage({ params }: PageProps<"/juntadas/[id]/cuentas">) {
   const usuario = await requireUsuario();
@@ -32,21 +45,111 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
   const yo = personaId({ userId: usuario.id, invitadoId: null });
   const persona = new Map(cuentas.personas.map((p) => [p.id, p]));
   const nombre = (id: string) => persona.get(id)?.nombre ?? "?";
+  const nombreCategoria = new Map(cuentas.categorias.map((c) => [c.id, c.nombre]));
 
-  const bonificados = (
-    <BonificadosSection
-      juntadaId={juntada.id}
-      personas={cuentas.personas.map(({ id, nombre, esInvitado }) => ({
-        id,
-        nombre,
-        esInvitado,
-      }))}
-      bonificados={cuentas.bonificados}
-    />
-  );
+  const abiertas = cuentas.estado === "abiertas";
+  const soyEncargado = cuentas.encargado?.id === usuario.id;
+  const miPendiente = cuentas.pendiente[yo] ?? 0;
 
   const conMovimiento = cuentas.personas.filter(
     (p) => (cuentas.pagado[p.id] ?? 0) > 0 || (cuentas.parte[p.id] ?? 0) > 0,
+  );
+
+  const tablaSaldos = conMovimiento.length > 0 && (
+    <section className="flex flex-col gap-2">
+      <h2 className={tituloSeccion}>{abiertas ? "CÓMO VA QUEDANDO" : "CÓMO QUEDÓ CADA UNO"}</h2>
+      <div className="overflow-hidden rounded-lg bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground-2">
+              <th className="px-4 py-2 font-semibold">Persona</th>
+              <th className="px-2 py-2 text-right font-semibold">Puso</th>
+              <th className="px-2 py-2 text-right font-semibold">Le toca</th>
+              <th className="px-4 py-2 text-right font-semibold">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {conMovimiento.map((p) => {
+              const saldo = cuentas.saldo[p.id] ?? 0;
+              return (
+                <tr key={p.id} className="border-t border-border">
+                  <td className="max-w-24 truncate px-4 py-2 text-foreground">
+                    {p.nombre}
+                    {p.id === yo && <span className="text-muted-foreground-2"> (vos)</span>}
+                  </td>
+                  <td className="px-2 py-2 text-right text-muted-foreground">
+                    {formatearPesos(cuentas.pagado[p.id] ?? 0)}
+                  </td>
+                  <td className="px-2 py-2 text-right text-muted-foreground">
+                    {formatearPesos(cuentas.parte[p.id] ?? 0)}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-4 py-2 text-right font-semibold",
+                      saldo < 0 ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {saldo > 0 ? "+" : ""}
+                    {formatearPesos(saldo)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
+  const listaGastos = (
+    <ul className="flex flex-col gap-2">
+      {cuentas.gastos.map((gasto) => {
+        const categoria = gasto.categoriaId ? nombreCategoria.get(gasto.categoriaId) : null;
+        const contenido = (
+          <>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{gasto.concepto}</p>
+              <p className="text-xs text-muted-foreground-2">
+                Pagó {nombre(gasto.pagadoPor)} ·{" "}
+                {categoria
+                  ? `en ${categoria}`
+                  : `entre ${gasto.participantes.map(nombre).join(", ")}`}
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-semibold text-foreground">
+              {formatearPesos(gasto.montoCentavos)}
+            </span>
+          </>
+        );
+        return (
+          <li key={gasto.id}>
+            {abiertas ? (
+              <Link
+                href={`/juntadas/${juntada.id}/cuentas/gasto/${gasto.id}`}
+                className="flex items-start gap-3 rounded-lg bg-card px-4 py-2.5 transition-colors hover:bg-accent"
+              >
+                {contenido}
+                <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground-2" />
+              </Link>
+            ) : (
+              <div className="flex items-start gap-3 rounded-lg bg-card px-4 py-2.5">
+                {contenido}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const categorias = (
+    <CategoriasSection
+      juntadaId={juntada.id}
+      categorias={cuentas.categorias}
+      personas={cuentas.personas.map(({ id, nombre, esInvitado }) => ({ id, nombre, esInvitado }))}
+      conGastos={cuentas.gastos.flatMap((g) => (g.categoriaId ? [g.categoriaId] : []))}
+      editable={abiertas}
+    />
   );
 
   return (
@@ -56,59 +159,120 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
         volverA={`/juntadas/${juntada.id}`}
       />
 
-      <div className="flex items-end justify-between rounded-lg border-l-4 border-l-primary bg-card px-4 py-3">
-        <div>
-          <p className={tituloSeccion}>TOTAL GASTADO</p>
-          <p className="font-heading text-4xl leading-none tracking-wide text-foreground">
-            {formatearPesos(cuentas.totalCentavos)}
-          </p>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-end justify-between rounded-lg border-l-4 border-l-primary bg-card px-4 py-3">
+          <div>
+            <p className={tituloSeccion}>
+              TOTAL GASTADO ·{" "}
+              {abiertas ? "CARGANDO" : cuentas.estado === "divididas" ? "DIVIDIDO" : "CERRADO"}
+            </p>
+            <p className="font-heading text-4xl leading-none tracking-wide text-foreground">
+              {formatearPesos(cuentas.totalCentavos)}
+            </p>
+          </div>
+          {miPendiente !== 0 && (
+            <p
+              className={cn(
+                "text-right text-sm font-semibold",
+                miPendiente > 0 ? "text-foreground" : "text-primary",
+              )}
+            >
+              {miPendiente > 0
+                ? `Te deben ${formatearPesos(miPendiente)}`
+                : `Debés ${formatearPesos(-miPendiente)}`}
+            </p>
+          )}
         </div>
-        {cuentas.saldo[yo] !== undefined && cuentas.saldo[yo] !== 0 && (
-          <p
-            className={cn(
-              "text-right text-sm font-semibold",
-              cuentas.saldo[yo] > 0 ? "text-foreground" : "text-primary",
-            )}
-          >
-            {cuentas.saldo[yo] > 0
-              ? `Te deben ${formatearPesos(cuentas.saldo[yo])}`
-              : `Debés ${formatearPesos(-cuentas.saldo[yo])}`}
-          </p>
-        )}
+        <EncargadoCuentas juntadaId={juntada.id} encargado={cuentas.encargado} />
       </div>
 
-      <Link
-        href={`/juntadas/${juntada.id}/cuentas/gasto`}
-        className="flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-      >
-        <Plus className="h-4 w-4" />
-        Cargar gasto
-      </Link>
+      {abiertas ? (
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+          <div className="flex flex-col gap-6">
+            <section className="flex flex-col gap-2">
+              <h2 className={tituloSeccion}>1 · ¿QUÉ DIVIDIMOS?</h2>
+              {categorias}
+            </section>
 
-      {cuentas.gastos.length === 0 ? (
-        <>
-          <EmptyState
-            icon={Receipt}
-            title="Todavía no hay gastos"
-            description="Cargá quién compró qué y la app calcula cuánto le pasa cada uno a quién."
-          />
-          {/* Se puede marcar al cumpleañero antes de cargar el primer gasto. */}
-          {bonificados}
-        </>
+            <section className="flex flex-col gap-2">
+              <h2 className={tituloSeccion}>2 · QUIÉN PUSO QUÉ</h2>
+              <p className="text-xs text-muted-foreground-2">
+                Cada uno carga lo que pagó para compartir. Lo que ya había o lo que alguien
+                trajo para él no se carga.
+              </p>
+              <Link
+                href={`/juntadas/${juntada.id}/cuentas/gasto`}
+                className="flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              >
+                <Plus className="h-4 w-4" />
+                Cargar lo que puse
+              </Link>
+              {cuentas.gastos.length === 0 ? (
+                <EmptyState
+                  icon={Receipt}
+                  title="Todavía no hay gastos"
+                  description="Cuando esté todo cargado, el encargado divide y la app arma quién le pasa a quién."
+                />
+              ) : (
+                listaGastos
+              )}
+            </section>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <section className="flex flex-col gap-2">
+              <h2 className={tituloSeccion}>3 · DIVIDIR</h2>
+              {soyEncargado ? (
+                <FormConfirmar
+                  action={dividirGastos.bind(null, juntada.id)}
+                  mensaje="¿Ya está todo cargado? Al dividir se arman las transferencias y no se pueden tocar los gastos (lo podés volver a abrir)."
+                  disabled={cuentas.gastos.length === 0}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-base font-semibold text-primary-foreground disabled:opacity-40"
+                >
+                  Dividir gastos
+                </FormConfirmar>
+              ) : (
+                <p className="rounded-lg bg-card px-4 py-3 text-sm text-muted-foreground">
+                  {cuentas.encargado
+                    ? `Cuando esté todo cargado, ${cuentas.encargado.nombre} divide y aparece quién le pasa a quién.`
+                    : "Cuando haya encargado, él divide y aparece quién le pasa a quién."}
+                </p>
+              )}
+            </section>
+
+            {tablaSaldos}
+
+            <BonificadosSection
+              juntadaId={juntada.id}
+              personas={cuentas.personas.map(({ id, nombre, esInvitado }) => ({
+                id,
+                nombre,
+                esInvitado,
+              }))}
+              bonificados={cuentas.bonificados}
+            />
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-2">
               <h2 className={tituloSeccion}>QUIÉN LE PASA A QUIÉN</h2>
               {cuentas.transferencias.length === 0 ? (
-                <p className="rounded-lg bg-card px-4 py-3 text-sm text-muted-foreground">
-                  Están todos a mano.
-                </p>
+                <div className="flex items-center gap-3 rounded-lg border-l-4 border-l-pagado bg-card px-4 py-3">
+                  <CircleCheck className="h-5 w-5 shrink-0 text-pagado" />
+                  <p className="text-sm text-foreground">
+                    {cuentas.estado === "cerradas"
+                      ? "Cuentas cerradas: quedó todo a mano."
+                      : "Están todos a mano."}
+                  </p>
+                </div>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {cuentas.transferencias.map((transferencia) => {
                     const destino = persona.get(transferencia.a);
                     const meToca = transferencia.de === yo;
+                    const puedoTildar = meToca || transferencia.a === yo || soyEncargado;
                     return (
                       <li
                         key={`${transferencia.de}-${transferencia.a}`}
@@ -118,31 +282,49 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
                         )}
                       >
                         <div className="flex items-center gap-2 text-sm">
-                          <span className="font-semibold text-foreground">
+                          <span className="truncate font-semibold text-foreground">
                             {nombre(transferencia.de)}
                           </span>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground-2" />
-                          <span className="font-semibold text-foreground">
+                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
+                          <span className="truncate font-semibold text-foreground">
                             {nombre(transferencia.a)}
                           </span>
-                          <span className="ml-auto font-heading text-xl tracking-wide text-primary">
+                          <span className="ml-auto shrink-0 font-heading text-xl tracking-wide text-primary">
                             {formatearPesos(transferencia.centavos)}
                           </span>
                         </div>
-                        {destino?.aliasCvu ? (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-xs text-muted-foreground-2">
-                              {destino.aliasCvu}
-                            </span>
-                            <BotonCopiar texto={destino.aliasCvu} label="Copiar alias" />
-                          </div>
-                        ) : (
-                          !destino?.esInvitado && (
+                        <div className="flex items-center justify-between gap-2">
+                          {destino?.aliasCvu ? (
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="truncate text-xs text-muted-foreground-2">
+                                {destino.aliasCvu}
+                              </span>
+                              <BotonCopiar texto={destino.aliasCvu} label="Copiar alias" />
+                            </div>
+                          ) : (
                             <span className="text-xs text-muted-foreground-2">
-                              {destino?.nombre} no cargó su alias todavía.
+                              {destino?.esInvitado ? "" : `${destino?.nombre} no cargó su alias.`}
                             </span>
-                          )
-                        )}
+                          )}
+                          {puedoTildar && (
+                            <form
+                              action={marcarPagado.bind(
+                                null,
+                                juntada.id,
+                                transferencia.de,
+                                transferencia.a,
+                              )}
+                            >
+                              <button
+                                type="submit"
+                                className="flex shrink-0 items-center gap-1 rounded-full border border-pagado/60 px-3 py-1 text-xs font-semibold text-pagado hover:bg-pagado/10"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                                Ya pagó
+                              </button>
+                            </form>
+                          )}
+                        </div>
                       </li>
                     );
                   })}
@@ -150,86 +332,90 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
               )}
             </section>
 
-            <section className="flex flex-col gap-2">
-              <h2 className={tituloSeccion}>GASTOS</h2>
-              <ul className="flex flex-col gap-2">
-                {cuentas.gastos.map((gasto) => {
-                  const todos = gasto.participantes.length === cuentas.personas.length;
-                  return (
-                    <li key={gasto.id}>
-                      <Link
-                        href={`/juntadas/${juntada.id}/cuentas/gasto/${gasto.id}`}
-                        className="flex items-start gap-3 rounded-lg bg-card px-4 py-2.5 transition-colors hover:bg-accent"
+            {cuentas.pagos.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h2 className={tituloSeccion}>YA PAGARON</h2>
+                <ul className="flex flex-col gap-2">
+                  {cuentas.pagos.map((pago) => {
+                    const puedoDeshacer =
+                      cuentas.estado === "divididas" &&
+                      (pago.de === yo || pago.a === yo || soyEncargado);
+                    return (
+                      <li
+                        key={pago.id}
+                        className="flex items-center gap-2 rounded-lg bg-card px-4 py-2.5 text-sm"
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {gasto.concepto}
-                          </p>
-                          <p className="text-xs text-muted-foreground-2">
-                            Pagó {nombre(gasto.pagadoPor)} ·{" "}
-                            {todos
-                              ? "entre todos"
-                              : `entre ${gasto.participantes.map(nombre).join(", ")}`}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-sm font-semibold text-foreground">
-                          {formatearPesos(gasto.montoCentavos)}
+                        <CircleCheck className="h-5 w-5 shrink-0 text-pagado" />
+                        <span className="min-w-0 truncate text-muted-foreground">
+                          {nombre(pago.de)} → {nombre(pago.a)}
                         </span>
-                        <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground-2" />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+                        <span className="ml-auto shrink-0 font-semibold text-pagado">
+                          {formatearPesos(pago.centavos)}
+                        </span>
+                        {puedoDeshacer && (
+                          <form action={deshacerPago.bind(null, juntada.id, pago.id)}>
+                            <button
+                              type="submit"
+                              aria-label="Deshacer pago"
+                              className="flex h-7 w-7 items-center justify-center text-muted-foreground-2 hover:text-primary"
+                            >
+                              <Undo2 className="h-4 w-4" />
+                            </button>
+                          </form>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+
+            {soyEncargado && (
+              <section className="flex flex-col gap-2">
+                {cuentas.estado === "divididas" ? (
+                  <>
+                    {cuentas.transferencias.length === 0 && (
+                      <FormConfirmar
+                        action={cerrarCuentas.bind(null, juntada.id)}
+                        mensaje="¿Cerrar las cuentas? Ya pagaron todos."
+                        className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-base font-semibold text-primary-foreground"
+                      >
+                        Cerrar cuentas
+                      </FormConfirmar>
+                    )}
+                    <FormConfirmar
+                      action={volverACargar.bind(null, juntada.id)}
+                      mensaje="¿Volver a cargar gastos? Los pagos ya tildados se mantienen."
+                      className={botonSecundario}
+                    >
+                      Volver a cargar gastos
+                    </FormConfirmar>
+                  </>
+                ) : (
+                  <FormConfirmar
+                    action={reabrirCuentas.bind(null, juntada.id)}
+                    mensaje="¿Reabrir las cuentas?"
+                    className={botonSecundario}
+                  >
+                    Reabrir cuentas
+                  </FormConfirmar>
+                )}
+              </section>
+            )}
           </div>
 
           <div className="flex flex-col gap-6">
+            {tablaSaldos}
+            {cuentas.categorias.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h2 className={tituloSeccion}>QUÉ SE DIVIDIÓ</h2>
+                {categorias}
+              </section>
+            )}
             <section className="flex flex-col gap-2">
-              <h2 className={tituloSeccion}>CÓMO QUEDA CADA UNO</h2>
-              <div className="overflow-hidden rounded-lg bg-card">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-muted-foreground-2">
-                      <th className="px-4 py-2 font-semibold">Persona</th>
-                      <th className="px-2 py-2 text-right font-semibold">Puso</th>
-                      <th className="px-2 py-2 text-right font-semibold">Le toca</th>
-                      <th className="px-4 py-2 text-right font-semibold">Saldo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {conMovimiento.map((p) => {
-                      const saldo = cuentas.saldo[p.id] ?? 0;
-                      return (
-                        <tr key={p.id} className="border-t border-border">
-                          <td className="max-w-24 truncate px-4 py-2 text-foreground">
-                            {p.nombre}
-                            {p.id === yo && <span className="text-muted-foreground-2"> (vos)</span>}
-                          </td>
-                          <td className="px-2 py-2 text-right text-muted-foreground">
-                            {formatearPesos(cuentas.pagado[p.id] ?? 0)}
-                          </td>
-                          <td className="px-2 py-2 text-right text-muted-foreground">
-                            {formatearPesos(cuentas.parte[p.id] ?? 0)}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-4 py-2 text-right font-semibold",
-                              saldo < 0 ? "text-primary" : "text-foreground",
-                            )}
-                          >
-                            {saldo > 0 ? "+" : ""}
-                            {formatearPesos(saldo)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <h2 className={tituloSeccion}>QUIÉN PUSO QUÉ</h2>
+              {listaGastos}
             </section>
-
-            {bonificados}
           </div>
         </div>
       )}

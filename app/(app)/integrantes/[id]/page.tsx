@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { borrarIntegrante, editarIntegrante } from "@/lib/actions/usuarios";
 import { Avatar } from "@/components/juntadas/Avatar";
+import { EncargadoFijo } from "@/components/integrantes/EncargadoFijo";
 import { FormEditarIntegrante } from "@/components/integrantes/FormEditarIntegrante";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
 import { FormConfirmar } from "@/components/ui/FormConfirmar";
@@ -27,7 +28,8 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
       apodo: true,
       avatarUrl: true,
       telefono: true,
-      _count: { select: { gastosPagados: true } },
+      encargadoCuentas: true,
+      _count: { select: { gastosPagados: true, pagosHechos: true, pagosRecibidos: true } },
     },
   });
 
@@ -59,11 +61,20 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
         }}
       />
 
+      <EncargadoFijo
+        userId={integrante.id}
+        apodo={apodo}
+        encargado={integrante.encargadoCuentas}
+      />
+
       <section className="flex flex-col gap-2 border-t border-border pt-6">
-        {integrante._count.gastosPagados > 0 ? (
+        {integrante._count.gastosPagados +
+          integrante._count.pagosHechos +
+          integrante._count.pagosRecibidos >
+        0 ? (
           <p className="text-center text-sm text-muted-foreground-2">
-            {apodo} pagó gastos en alguna juntada: para sacarlo del grupo primero hay que
-            editar o borrar esos gastos.
+            {apodo} tiene gastos o pagos en alguna juntada: para sacarlo del grupo primero
+            hay que editar o borrar esos gastos.
           </p>
         ) : (
           <FormConfirmar
