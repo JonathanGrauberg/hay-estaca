@@ -4,9 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { guardarSesion, requireUsuario } from "@/lib/auth";
-import { PIN_REGEX, hashPin } from "@/lib/auth/pin";
+import { PIN_REGEX, generarPin, hashPin } from "@/lib/auth/pin";
 
 export type CrearIntegranteState = { error: string } | undefined;
+
+// Lo que ve el admin después de sumar a alguien o generarle un PIN nuevo: el PIN en
+// claro, una sola vez, para pasárselo por privado (en la base solo queda el hash).
+export type AccesoState = { error: string } | { apodo: string; pin: string } | undefined;
+
+const SOLO_ADMIN = "Solo el admin del grupo puede hacer esto.";
 
 type DatosIntegrante = {
   nombre: string;
@@ -33,21 +39,53 @@ function leerIntegrante(formData: FormData): { error: string } | { data: DatosIn
   };
 }
 
+// Solo el admin suma gente: le pone nombre y apodo, la app le genera el PIN y el admin
+// se lo pasa con el botón "Compartir".
 export async function crearIntegrante(
-  _prevState: CrearIntegranteState,
+  _prevState: AccesoState,
   formData: FormData
-): Promise<CrearIntegranteState> {
-  await requireUsuario();
-
-  const resultado = leerIntegrante(formData);
-  if ("error" in resultado) {
-    return { error: resultado.error };
+): Promise<AccesoState> {
+  const usuario = await requireUsuario();
+  if (!usuario.esAdmin) {
+    return { error: SOLO_ADMIN };
   }
 
-  await prisma.user.create({ data: resultado.data });
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const apodo = String(formData.get("apodo") ?? "").trim();
+  const telefono = String(formData.get("telefono") ?? "").trim();
+  if (!nombre || !apodo) {
+    return { error: "Completá nombre y apodo." };
+  }
+
+  const pin = generarPin();
+  await prisma.user.create({
+    data: { nombre, apodo, telefono: telefono || null, pinHash: hashPin(pin) },
+  });
 
   revalidatePath("/", "layout");
-  redirect("/integrantes");
+  return { apodo, pin };
+}
+
+// Para el que se olvidó el PIN (o nunca lo supo): el admin le genera uno nuevo y de
+// paso lo desbloquea si se había trabado por intentos fallidos.
+export async function generarNuevoPin(
+  userId: string,
+  _prevState: AccesoState,
+  _formData: FormData
+): Promise<AccesoState> {
+  const usuario = await requireUsuario();
+  if (!usuario.esAdmin) {
+    return { error: SOLO_ADMIN };
+  }
+
+  const pin = generarPin();
+  const integrante = await prisma.user.update({
+    where: { id: userId },
+    data: { pinHash: hashPin(pin), intentosFallidos: 0, bloqueadoHasta: null },
+    select: { apodo: true, nombre: true },
+  });
+
+  return { apodo: integrante.apodo || integrante.nombre, pin };
 }
 
 // Solo para arrancar con la base vacía: el primero en entrar se crea a sí mismo y
@@ -65,7 +103,8 @@ export async function crearPrimerIntegrante(
     return { error: resultado.error };
   }
 
-  const usuario = await prisma.user.create({ data: resultado.data });
+  // El que arranca el grupo queda como admin.
+  const usuario = await prisma.user.create({ data: { ...resultado.data, esAdmin: true } });
   await guardarSesion(usuario.id);
 
   redirect("/");
@@ -73,14 +112,17 @@ export async function crearPrimerIntegrante(
 
 export type EditarIntegranteState = { error: string } | { ok: string } | undefined;
 
-// Grupo de confianza: cualquiera puede corregir los datos de cualquiera (nombre,
-// apodo, teléfono). El PIN no se toca acá: solo lo cambia cada uno desde /perfil.
+// Cada uno edita sus datos (nombre, apodo, teléfono); los de los demás, solo el admin.
+// El PIN no se toca acá: lo cambia cada uno desde /perfil o el admin genera uno nuevo.
 export async function editarIntegrante(
   userId: string,
   _prevState: EditarIntegranteState,
   formData: FormData
 ): Promise<EditarIntegranteState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (userId !== usuario.id && !usuario.esAdmin) {
+    return { error: SOLO_ADMIN };
+  }
 
   const nombre = String(formData.get("nombre") ?? "").trim();
   const apodo = String(formData.get("apodo") ?? "").trim();
@@ -103,7 +145,7 @@ export async function borrarIntegrante(userId: string, _formData: FormData) {
   const usuario = await requireUsuario();
 
   // Borrarse a uno mismo dejaría la sesión colgada (y podría dejar el grupo vacío).
-  if (userId === usuario.id) {
+  if (!usuario.esAdmin || userId === usuario.id) {
     return;
   }
 

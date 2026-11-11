@@ -52,6 +52,8 @@ model User {
   // Encargado fijo de "la casa de la moneda": queda a cargo de las cuentas de cada
   // juntada a la que confirma que va.
   encargadoCuentas Boolean   @default(false)
+  // Admin del grupo: suma y saca integrantes, edita sus datos y les genera PIN nuevo.
+  esAdmin          Boolean   @default(false)
 
   asistencias             Asistencia[]
   checklistItemsAsignados ChecklistItem[]         @relation("ChecklistAsignado")

@@ -2,9 +2,8 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
-import { crearIntegrante } from "@/lib/actions/usuarios";
 import { Avatar } from "@/components/juntadas/Avatar";
-import { FormIntegrante } from "@/components/integrantes/FormIntegrante";
+import { FormSumarIntegrante } from "@/components/integrantes/FormSumarIntegrante";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
 
 export const dynamic = "force-dynamic";
@@ -56,14 +55,19 @@ export default async function IntegrantesPage() {
           <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
             SUMAR INTEGRANTE
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Le ponés un PIN inicial y se lo pasás; después lo cambia desde &quot;Yo&quot;.
-          </p>
-          <FormIntegrante
-            accion={crearIntegrante}
-            labelBoton="Sumar integrante"
-            labelPin="PIN inicial"
-          />
+          {usuario.esAdmin ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                La app le genera un PIN y le mandás el link con el botón Compartir. Después
+                lo cambia desde &quot;Yo&quot;.
+              </p>
+              <FormSumarIntegrante />
+            </>
+          ) : (
+            <p className="rounded-lg bg-card px-4 py-3 text-sm text-muted-foreground">
+              Para sumar a alguien (o si alguien no sabe su PIN), pedíselo al admin del grupo.
+            </p>
+          )}
         </section>
       </div>
     </main>

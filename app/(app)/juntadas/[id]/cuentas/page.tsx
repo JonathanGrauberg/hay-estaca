@@ -146,7 +146,12 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
     <CategoriasSection
       juntadaId={juntada.id}
       categorias={cuentas.categorias}
-      personas={cuentas.personas.map(({ id, nombre, esInvitado }) => ({ id, nombre, esInvitado }))}
+      personas={cuentas.personas.map(({ id, nombre, esInvitado, vaPorDefecto }) => ({
+        id,
+        nombre,
+        esInvitado,
+        va: vaPorDefecto,
+      }))}
       conGastos={cuentas.gastos.flatMap((g) => (g.categoriaId ? [g.categoriaId] : []))}
       editable={abiertas}
     />

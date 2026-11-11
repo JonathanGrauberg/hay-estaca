@@ -6,6 +6,7 @@ import { borrarIntegrante, editarIntegrante } from "@/lib/actions/usuarios";
 import { Avatar } from "@/components/juntadas/Avatar";
 import { EncargadoFijo } from "@/components/integrantes/EncargadoFijo";
 import { FormEditarIntegrante } from "@/components/integrantes/FormEditarIntegrante";
+import { NuevoPin } from "@/components/integrantes/NuevoPin";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
 import { FormConfirmar } from "@/components/ui/FormConfirmar";
 
@@ -52,41 +53,57 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
         />
       </div>
 
-      <FormEditarIntegrante
-        accion={editarIntegrante.bind(null, integrante.id)}
-        valores={{
-          nombre: integrante.nombre,
-          apodo: integrante.apodo,
-          telefono: integrante.telefono ?? "",
-        }}
-      />
+      {usuario.esAdmin ? (
+        <>
+          <FormEditarIntegrante
+            accion={editarIntegrante.bind(null, integrante.id)}
+            valores={{
+              nombre: integrante.nombre,
+              apodo: integrante.apodo,
+              telefono: integrante.telefono ?? "",
+            }}
+          />
 
-      <EncargadoFijo
-        userId={integrante.id}
-        apodo={apodo}
-        encargado={integrante.encargadoCuentas}
-      />
+          <NuevoPin userId={integrante.id} apodo={apodo} />
 
-      <section className="flex flex-col gap-2 border-t border-border pt-6">
-        {integrante._count.gastosPagados +
-          integrante._count.pagosHechos +
-          integrante._count.pagosRecibidos >
-        0 ? (
-          <p className="text-center text-sm text-muted-foreground-2">
-            {apodo} tiene gastos o pagos en alguna juntada: para sacarlo del grupo primero
-            hay que editar o borrar esos gastos.
+          <EncargadoFijo
+            userId={integrante.id}
+            apodo={apodo}
+            encargado={integrante.encargadoCuentas}
+          />
+
+          <section className="flex flex-col gap-2 border-t border-border pt-6">
+            {integrante._count.gastosPagados +
+              integrante._count.pagosHechos +
+              integrante._count.pagosRecibidos >
+            0 ? (
+              <p className="text-center text-sm text-muted-foreground-2">
+                {apodo} tiene gastos o pagos en alguna juntada: para sacarlo del grupo primero
+                hay que editar o borrar esos gastos.
+              </p>
+            ) : (
+              <FormConfirmar
+                action={borrarIntegrante.bind(null, integrante.id)}
+                mensaje={`¿Sacar a ${apodo} del grupo? Se borran sus asistencias y deja de poder entrar.`}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:border-primary"
+              >
+                <Trash2 className="h-4 w-4" />
+                Sacar del grupo
+              </FormConfirmar>
+            )}
+          </section>
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-1 text-center">
+          <p className="text-sm text-muted-foreground">{integrante.nombre}</p>
+          {integrante.encargadoCuentas && (
+            <p className="text-xs text-muted-foreground-2">Encargado de la casa de la moneda</p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground-2">
+            Los datos de los integrantes los cambia el admin del grupo.
           </p>
-        ) : (
-          <FormConfirmar
-            action={borrarIntegrante.bind(null, integrante.id)}
-            mensaje={`¿Sacar a ${apodo} del grupo? Se borran sus asistencias y deja de poder entrar.`}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:border-primary"
-          >
-            <Trash2 className="h-4 w-4" />
-            Sacar del grupo
-          </FormConfirmar>
-        )}
-      </section>
+        </div>
+      )}
     </main>
   );
 }

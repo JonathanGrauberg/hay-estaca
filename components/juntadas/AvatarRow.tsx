@@ -13,9 +13,11 @@ export interface AvatarRowMiembro {
 
 interface AvatarRowProps {
   miembros: AvatarRowMiembro[];
+  // Solo el admin suma gente.
+  puedeSumar: boolean;
 }
 
-export function AvatarRow({ miembros }: AvatarRowProps) {
+export function AvatarRow({ miembros, puedeSumar }: AvatarRowProps) {
   return (
     <div className="flex gap-4 overflow-x-auto px-1 py-1">
       {miembros.map((miembro) => (
@@ -36,16 +38,18 @@ export function AvatarRow({ miembros }: AvatarRowProps) {
         </div>
       ))}
 
-      <div className="flex shrink-0 flex-col items-center gap-1.5">
-        <Link
-          href="/integrantes"
-          aria-label="Sumar integrante"
-          className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-border text-muted-foreground-2 transition-colors hover:border-primary hover:text-primary"
-        >
-          <Plus className="h-5 w-5" />
-        </Link>
-        <span className="text-xs text-muted-foreground-2">Sumar</span>
-      </div>
+      {puedeSumar && (
+        <div className="flex shrink-0 flex-col items-center gap-1.5">
+          <Link
+            href="/integrantes"
+            aria-label="Sumar integrante"
+            className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-border text-muted-foreground-2 transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-5 w-5" />
+          </Link>
+          <span className="text-xs text-muted-foreground-2">Sumar</span>
+        </div>
+      )}
     </div>
   );
 }

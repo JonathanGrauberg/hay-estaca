@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE, crearToken, leerToken } from "@/lib/auth/session";
 
 // Usuario logueado según la cookie, verificado contra la base (si lo borraron, no hay
-// sesión). Solo id/nombre/apodo/avatar: nunca el teléfono ni el pinHash.
+// sesión). Solo id/nombre/apodo/avatar/admin: nunca el teléfono ni el pinHash.
 // cache() evita repetir la consulta cuando varias partes del mismo render la piden.
 export const getUsuarioActual = cache(async () => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
@@ -15,7 +15,7 @@ export const getUsuarioActual = cache(async () => {
   }
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, nombre: true, apodo: true, avatarUrl: true },
+    select: { id: true, nombre: true, apodo: true, avatarUrl: true, esAdmin: true },
   });
 });
 

@@ -18,6 +18,8 @@ interface PersonaChip {
   id: string;
   nombre: string;
   esInvitado: boolean;
+  // Confirmó que va (o es invitado de la juntada).
+  va: boolean;
 }
 
 interface CategoriasSectionProps {
@@ -148,7 +150,10 @@ function CategoriaCard({
     });
   }
 
-  const visibles = editable ? personas : personas.filter((p) => tildados.has(p.id));
+  // Se muestran los que van y los que ya estén tildados; al resto (no confirmó) se lo
+  // suma desde el desplegable.
+  const visibles = personas.filter((p) => tildados.has(p.id) || (editable && p.va));
+  const otros = editable ? personas.filter((p) => !tildados.has(p.id) && !p.va) : [];
   const porCabeza =
     categoria.totalCentavos > 0 && tildados.size > 0
       ? ` · ${formatearPesos(Math.ceil(categoria.totalCentavos / tildados.size))} c/u`
@@ -169,10 +174,10 @@ function CategoriaCard({
           <div className="flex shrink-0 gap-1">
             <button
               type="button"
-              onClick={() => marcarTodos(personas.map((p) => p.id))}
+              onClick={() => marcarTodos(personas.filter((p) => p.va).map((p) => p.id))}
               className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground-2 hover:text-foreground"
             >
-              Todos
+              Los que van
             </button>
             <button
               type="button"
@@ -230,6 +235,30 @@ function CategoriaCard({
           );
         })}
       </div>
+
+      {visibles.length === 0 && (
+        <p className="text-xs text-muted-foreground-2">
+          Nadie confirmó que va todavía. Cuando confirmen se suman solos.
+        </p>
+      )}
+
+      {otros.length > 0 && (
+        <select
+          value=""
+          onChange={(event) => event.target.value && alternar(event.target.value)}
+          aria-label={`Sumar a alguien a ${categoria.nombre}`}
+          className="self-start rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground outline-none focus:border-primary"
+        >
+          <option value="" className="bg-card">
+            + Sumar a alguien que no confirmó
+          </option>
+          {otros.map((persona) => (
+            <option key={persona.id} value={persona.id} className="bg-card text-foreground">
+              {persona.nombre}
+            </option>
+          ))}
+        </select>
+      )}
     </li>
   );
 }

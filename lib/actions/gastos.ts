@@ -188,8 +188,9 @@ export async function quitarBonificado(juntadaId: string, bonificadoId: string, 
 export type CrearCategoriasState = { error: string } | undefined;
 
 // "¿Qué dividimos?": acepta varias separadas por coma ("comida, bebida, picada").
-// Arrancan con todos los que confirmaron que van (y los invitados) tildados; si nadie
-// confirmó, con todo el grupo. Después se destilda al que no participó.
+// Arrancan con los que confirmaron que van (y los invitados) tildados; después se
+// destilda al que no participó. Los que confirman más tarde se suman solos
+// (lib/actions/asistencias.ts).
 export async function crearCategorias(
   juntadaId: string,
   _prevState: CrearCategoriasState,
@@ -224,15 +225,12 @@ export async function crearCategorias(
     return { error: "Escribí qué se divide (ej: comida, bebida) o una que no esté." };
   }
 
-  const [usuarios, confirmados, invitados] = await Promise.all([
-    prisma.user.findMany({ select: { id: true } }),
+  const [confirmados, invitados] = await Promise.all([
     prisma.asistencia.findMany({ where: { juntadaId, estado: "voy" }, select: { userId: true } }),
     prisma.invitado.findMany({ where: { juntadaId }, select: { id: true } }),
   ]);
-  const integrantes =
-    confirmados.length > 0 ? confirmados.map((a) => a.userId) : usuarios.map((u) => u.id);
   const participantes = [
-    ...integrantes.map((userId) => ({ userId, invitadoId: null })),
+    ...confirmados.map(({ userId }) => ({ userId, invitadoId: null })),
     ...invitados.map((invitado) => ({ userId: null, invitadoId: invitado.id })),
   ];
 

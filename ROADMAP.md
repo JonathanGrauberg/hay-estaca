@@ -8,9 +8,12 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
 - Login por PIN de 4 dígitos (avatar + PIN), sesión en cookie firmada, bloqueo tras 5 intentos.
 - Dashboard: próxima juntada destacada, próximas y pasadas según la fecha real.
 - Crear juntada, detalle con RSVP (voy / no voy / en duda).
-- Checklist grupal (asignar; solo el asignado tilda) e individual (recordatorios).
+- Checklist grupal (asignar; solo el asignado tilda) e individual (lo que lleva cada uno),
+  las dos a la vista.
 - Aviso in-app 1h antes si tenés ítems grupales sin completar.
 - Integrantes: alta con PIN inicial, cambiar mi PIN.
+- Admin del grupo: suma, edita y saca integrantes, elige encargados y genera PINs nuevos
+  con botón "Compartir" (mensaje con link y PIN para mandar por privado).
 - Seed de usuarios de prueba (`npm run seed`, ver `.env.example`).
 - PWA: manifest e íconos.
 - Deploy en Vercel (https://hay-estaca.vercel.app), se publica solo con cada push a `main`.

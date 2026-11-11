@@ -1,9 +1,14 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 
 // Este archivo solo depende de node:crypto para que prisma/seed.ts lo pueda importar
 // corriendo con Node directo (sin el bundler de Next ni el alias "@/").
 
 export const PIN_REGEX = /^\d{4}$/;
+
+// PIN nuevo que genera el admin para pasárselo a alguien (con ceros adelante: "0427").
+export function generarPin() {
+  return String(randomInt(0, 10000)).padStart(4, "0");
+}
 
 // Se guarda "salt:hash" en hex. scrypt hace caro probar PINs si alguien se lleva la
 // base, aunque con 4 dígitos la defensa real es el bloqueo por intentos fallidos.

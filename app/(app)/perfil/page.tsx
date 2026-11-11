@@ -55,11 +55,13 @@ export default async function PerfilPage() {
         <FormAlias aliasCvu={aliasCvu ?? ""} />
       </section>
 
-      <EncargadoFijo
-        userId={usuario.id}
-        apodo={usuario.apodo || usuario.nombre}
-        encargado={encargadoCuentas}
-      />
+      {usuario.esAdmin && (
+        <EncargadoFijo
+          userId={usuario.id}
+          apodo={usuario.apodo || usuario.nombre}
+          encargado={encargadoCuentas}
+        />
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">

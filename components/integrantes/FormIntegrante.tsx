@@ -8,7 +8,7 @@ const inputClass =
 const labelClass = "text-sm font-medium text-foreground";
 
 interface FormIntegranteProps {
-  // crearIntegrante desde /perfil, o crearPrimerIntegrante desde /login con la base vacía.
+  // crearPrimerIntegrante desde /login con la base vacía (los demás los suma el admin).
   accion: (prevState: CrearIntegranteState, formData: FormData) => Promise<CrearIntegranteState>;
   labelBoton: string;
   labelPin: string;

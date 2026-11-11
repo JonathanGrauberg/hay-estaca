@@ -99,7 +99,7 @@ export default async function InicioPage() {
         <div className="flex flex-col gap-6">
           <RecordatorioBanner items={checklistPendientes} apodo={usuario.apodo || usuario.nombre} />
 
-          <AvatarRow miembros={miembrosConEstado} />
+          <AvatarRow miembros={miembrosConEstado} puedeSumar={usuario.esAdmin} />
 
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">

@@ -128,10 +128,12 @@ export async function deshacerPago(juntadaId: string, pagoId: string, _formData:
   revalidarCuentas(juntadaId);
 }
 
-// Encargados fijos del grupo (Willy, Guichi...). Cualquiera del grupo lo puede cambiar,
-// como el resto de los datos de los integrantes.
+// Encargados fijos del grupo (Willy, Guichi...). Los elige el admin.
 export async function cambiarEncargadoFijo(userId: string, encargado: boolean, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!usuario.esAdmin) {
+    return;
+  }
 
   await prisma.user.update({ where: { id: userId }, data: { encargadoCuentas: encargado } });
 

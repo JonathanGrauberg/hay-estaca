@@ -1,13 +1,9 @@
-"use client";
-
-import { useState } from "react";
 import type { TipoChecklistItem } from "@/app/generated/prisma/enums";
 import {
   ChecklistItemRow,
   type ChecklistItemConAsignado,
 } from "@/components/juntadas/ChecklistItemRow";
 import { FormAgregarItem } from "@/components/juntadas/FormAgregarItem";
-import { cn } from "@/lib/utils";
 
 interface ChecklistSectionProps {
   juntadaId: string;
@@ -16,54 +12,45 @@ interface ChecklistSectionProps {
   usuarioActualId: string;
 }
 
-const TABS: { tipo: TipoChecklistItem; label: string }[] = [
-  { tipo: "grupal", label: "Grupal" },
-  { tipo: "individual", label: "Individual" },
+// Las dos listas a la vista: lo grupal (alguien se encarga) y lo que cada uno tiene
+// que llevar para sí.
+const SECCIONES: { tipo: TipoChecklistItem; titulo: string; ayuda: string }[] = [
+  { tipo: "grupal", titulo: "LO QUE HAY QUE LLEVAR", ayuda: "Cada cosa la lleva alguien del grupo." },
+  { tipo: "individual", titulo: "CADA UNO LLEVA LO SUYO", ayuda: "Lo que tiene que traer cada uno." },
 ];
 
 export function ChecklistSection({ juntadaId, items, miembros, usuarioActualId }: ChecklistSectionProps) {
-  const [tab, setTab] = useState<TipoChecklistItem>("grupal");
-
-  const itemsFiltrados = items.filter((item) => item.tipo === tab);
-
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
-          CHECKLIST
-        </h2>
-        <div className="flex rounded-full bg-card p-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.tipo}
-              type="button"
-              onClick={() => setTab(t.tipo)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
-                tab === t.tipo ? "bg-primary text-primary-foreground" : "text-muted-foreground-2"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      {SECCIONES.map((seccion) => {
+        const itemsSeccion = items.filter((item) => item.tipo === seccion.tipo);
+        return (
+          <section key={seccion.tipo} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
+                {seccion.titulo}
+              </h2>
+              <p className="text-xs text-muted-foreground-2">{seccion.ayuda}</p>
+            </div>
 
-      {itemsFiltrados.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {itemsFiltrados.map((item) => (
-            <ChecklistItemRow
-              key={item.id}
-              juntadaId={juntadaId}
-              item={item}
-              miembros={miembros}
-              usuarioActualId={usuarioActualId}
-            />
-          ))}
-        </ul>
-      )}
+            {itemsSeccion.length > 0 && (
+              <ul className="flex flex-col gap-2">
+                {itemsSeccion.map((item) => (
+                  <ChecklistItemRow
+                    key={item.id}
+                    juntadaId={juntadaId}
+                    item={item}
+                    miembros={miembros}
+                    usuarioActualId={usuarioActualId}
+                  />
+                ))}
+              </ul>
+            )}
 
-      <FormAgregarItem key={tab} juntadaId={juntadaId} tipo={tab} />
-    </section>
+            <FormAgregarItem juntadaId={juntadaId} tipo={seccion.tipo} />
+          </section>
+        );
+      })}
+    </div>
   );
 }
