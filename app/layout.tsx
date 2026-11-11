@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Inter } from "next/font/google";
+import Script from "next/script";
+import { Bienvenida } from "@/components/marca/Bienvenida";
+import { SCRIPT_BIENVENIDA } from "@/components/marca/bienvenidaScript";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +29,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${inter.variable} ${bebasNeue.variable} h-full`}>
-      <body className="flex min-h-full flex-col antialiased">{children}</body>
+      <body className="flex min-h-full flex-col antialiased">
+        <Script id="bienvenida-vista" strategy="beforeInteractive">
+          {SCRIPT_BIENVENIDA}
+        </Script>
+        <Bienvenida />
+        {children}
+      </body>
     </html>
   );
 }

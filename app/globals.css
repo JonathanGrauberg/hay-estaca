@@ -34,6 +34,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-pagado: var(--pagado);
+  --color-brasa: var(--brasa);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -70,6 +71,8 @@
   --destructive: #ff2e1f;
   /* El check verde de "ya pagó" en las cuentas: el único verde de la app. */
   --pagado: #3ecf6e;
+  /* El corazón del fueguito y las brasas de la bienvenida. */
+  --brasa: #ffa12e;
   --border: #2a251f;
   --input: #2a251f;
   --ring: #ff2e1f;
@@ -108,4 +111,101 @@
 }
 *:hover {
   scrollbar-color: var(--muted-foreground-2) transparent;
+}
+
+/*
+ * El fueguito: titila siempre, desde la base (como una llama de verdad).
+ */
+.fueguito path {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.fueguito-afuera {
+  fill: var(--primary);
+  animation: titilar 0.9s ease-in-out infinite alternate;
+}
+.fueguito-adentro {
+  fill: var(--brasa);
+  animation: titilar 0.55s ease-in-out infinite alternate-reverse;
+}
+@keyframes titilar {
+  from {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  50% {
+    transform: scale(0.96, 1.06) skewX(-2deg);
+  }
+  to {
+    transform: scale(1.02, 0.95) skewX(2deg);
+  }
+}
+
+/*
+ * Bienvenida (components/marca/Bienvenida.tsx): caen las brasas (0–1,4s), se prende
+ * el fuego (1–1,5s), se despliega el texto y el fuego queda a la izquierda
+ * (1,7–2,4s) y se apaga la pantalla (3,3s). Tocándola se saltea.
+ */
+.bienvenida {
+  animation: apagar 0.5s ease-in 3.3s forwards;
+}
+.brasa {
+  background: var(--brasa);
+  box-shadow: 0 0 10px 2px var(--brasa);
+  opacity: 0;
+  animation: caer 0.8s ease-in both;
+}
+.bienvenida-fuego {
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 60%, transparent));
+  animation: prender 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) 1s both;
+}
+.bienvenida-texto {
+  max-width: 0;
+  animation: desplegar 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 1.7s forwards;
+}
+@keyframes caer {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45vh);
+  }
+  20% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-50%, 20px) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, 24px) scale(0.3);
+  }
+}
+@keyframes prender {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes desplegar {
+  to {
+    max-width: 24rem;
+  }
+}
+@keyframes apagar {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bienvenida {
+    display: none;
+  }
+  .fueguito path {
+    animation: none;
+  }
 }
