@@ -30,6 +30,7 @@ import { CategoriasSection } from "@/components/cuentas/CategoriasSection";
 import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { EmptyState } from "@/components/juntadas/EmptyState";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
+import { Ayuda } from "@/components/ui/Ayuda";
 import { FormConfirmar } from "@/components/ui/FormConfirmar";
 
 export const dynamic = "force-dynamic";
@@ -234,12 +235,14 @@ export default async function CuentasJuntadaPage({
         <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-2">
-              <h2 className={tituloSeccion}>1 · QUIÉN PUSO QUÉ</h2>
-              <p className="text-xs text-muted-foreground-2">
-                Cada uno carga lo que pagó para compartir y elige en qué
-                categoría va (ej: la carne en Comida, el fernet en Bebida). Lo
-                que ya había o lo que alguien trajo para él no se carga.
-              </p>
+              <div className="flex items-center gap-1.5">
+                <h2 className={tituloSeccion}>1 · QUIÉN PUSO QUÉ</h2>
+                <Ayuda titulo="Quién puso qué">
+                  Cada uno carga lo que pagó para compartir y elige en qué
+                  categoría va (ej: la carne en Comida, el fernet en Bebida). Lo
+                  que ya había o lo que alguien trajo para él no se carga.
+                </Ayuda>
+              </div>
               {puedeModificar ? (
                 <Link
                   href={`/juntadas/${juntada.id}/cuentas/gasto`}
@@ -266,21 +269,14 @@ export default async function CuentasJuntadaPage({
             </section>
 
             <section className="flex flex-col gap-2">
-              <h2 className={tituloSeccion}>2 · ¿QUIÉN ENTRA EN CADA COSA?</h2>
-              <div className="flex flex-col gap-1 rounded-lg bg-card px-4 py-3 text-xs text-muted-foreground">
-                <p>
-                  Las{" "}
-                  <span className="font-semibold text-foreground">
-                    categorías
-                  </span>{" "}
-                  son los sectores de la juntada: comida, bebida, picada… Cada
-                  una se divide solo entre los tildados.
-                </p>
-                <p>
-                  Arrancan con los que van, así que en general no hay que tocar
-                  nada. Sacá al que no tomó de Bebida, o renombrá una con el
-                  lápiz.
-                </p>
+              <div className="flex items-center gap-1.5">
+                <h2 className={tituloSeccion}>2 · ¿QUIÉN ENTRA EN CADA COSA?</h2>
+                <Ayuda titulo="Categorías">
+                  Las categorías son los sectores de la juntada: comida, bebida,
+                  picada… Cada una se divide solo entre los tildados. Arrancan
+                  con los que van, así que en general no hay que tocar nada.
+                  Sacá al que no tomó de Bebida, o renombrá una con el lápiz.
+                </Ayuda>
               </div>
               {categorias}
             </section>

@@ -10,6 +10,8 @@ import { desdeHistoriasVigentes, haceCuanto, rutaFoto } from "@/lib/fotos";
 import { r2Configurado } from "@/lib/r2";
 import { estadoHistorias } from "@/lib/juntadas/horario";
 import { HistoriasJuntada } from "@/components/fotos/HistoriasJuntada";
+import { EncuestasSection } from "@/components/encuestas/EncuestasSection";
+import { leerEncuestas } from "@/lib/encuestas/datos";
 import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
 import { ChecklistSection } from "@/components/juntadas/ChecklistSection";
@@ -32,7 +34,7 @@ export default async function JuntadaDetallePage({
   const { id } = await params;
 
   const desde = desdeHistoriasVigentes();
-  const [juntada, miembros, checklistItems, encargado, historias] =
+  const [juntada, miembros, checklistItems, encargado, historias, encuestas] =
     await Promise.all([
       prisma.juntada.findUnique({
         where: { id },
@@ -72,6 +74,7 @@ export default async function JuntadaDetallePage({
           },
         },
       }),
+      leerEncuestas(id, usuario),
     ]);
 
   if (!juntada) {
@@ -242,6 +245,13 @@ export default async function JuntadaDetallePage({
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
           </Link>
+
+          <EncuestasSection
+            juntadaId={juntada.id}
+            inicial={encuestas}
+            puedeCrear={!soloLectura}
+            cuentasAbiertas={juntada.cuentasEstado === "abiertas"}
+          />
 
           <EncargadoCuentas
             juntadaId={juntada.id}

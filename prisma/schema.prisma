@@ -74,6 +74,8 @@ model User {
   historiasVistas          VistaHistoria[]
   trucoAnotador            PartidaTruco[]          @relation("TrucoAnotador")
   trucoJugador             JugadorTruco[]
+  encuestasCreadas         Encuesta[]
+  votosEncuesta            VotoEncuesta[]
 }
 
 model Juntada {
@@ -108,6 +110,7 @@ model Juntada {
   gastos           Gasto[]
   bonificados      Bonificado[]
   partidasTruco    PartidaTruco[]
+  encuestas        Encuesta[]
 
   @@index([estado])
   @@index([fecha])
@@ -377,4 +380,54 @@ model JugadorTruco {
 
   @@unique([partidaId, userId])
   @@unique([partidaId, invitadoId])
+}
+
+// Encuesta de la juntada, como las de WhatsApp. Votan los que van; si es una segunda
+// vuelta (soloDeOpcionId), votan solo los que eligieron esa opción en la anterior
+// (ej: "¿Cuántas promos?" solo para los que dijeron "Me sumo").
+model Encuesta {
+  id             String    @id @default(cuid())
+  juntadaId      String
+  creadaPorId    String?
+  pregunta       String
+  multiple       Boolean   @default(false)
+  soloDeOpcionId String?
+  cerradaAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  juntada      Juntada          @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  creadaPor    User?            @relation(fields: [creadaPorId], references: [id], onDelete: SetNull)
+  soloDeOpcion OpcionEncuesta?  @relation("SegundaVuelta", fields: [soloDeOpcionId], references: [id], onDelete: Cascade)
+  opciones     OpcionEncuesta[] @relation("OpcionesEncuesta")
+  votos        VotoEncuesta[]
+
+  @@index([juntadaId, createdAt])
+}
+
+model OpcionEncuesta {
+  id         String @id @default(cuid())
+  encuestaId String
+  texto      String
+  orden      Int
+
+  encuesta      Encuesta       @relation("OpcionesEncuesta", fields: [encuestaId], references: [id], onDelete: Cascade)
+  votos         VotoEncuesta[]
+  segundaVuelta Encuesta[]     @relation("SegundaVuelta")
+
+  @@index([encuestaId])
+}
+
+model VotoEncuesta {
+  encuestaId String
+  opcionId   String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  encuesta Encuesta       @relation(fields: [encuestaId], references: [id], onDelete: Cascade)
+  opcion   OpcionEncuesta @relation(fields: [opcionId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([opcionId, userId])
+  @@index([encuestaId, userId])
 }

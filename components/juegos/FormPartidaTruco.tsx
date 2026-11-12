@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Shuffle } from "lucide-react";
 import { crearPartidaTruco, type CrearPartidaState } from "@/lib/actions/truco";
 import type { Equipo } from "@/lib/juegos/truco";
+import { Ayuda } from "@/components/ui/Ayuda";
 import { cn } from "@/lib/utils";
 
 const inputClass =
@@ -121,7 +122,13 @@ export function FormPartidaTruco({
 
       <fieldset className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <legend className={labelClass}>¿Quién juega en cada equipo?</legend>
+          <div className="flex items-center gap-1.5">
+            <p className={labelClass}>¿Quién juega en cada equipo?</p>
+            <Ayuda titulo="Equipos">
+              Tocá el equipo de cada uno. Los que no toques no juegan. Con
+              &quot;Mezclar al azar&quot; se reparten al azar los que elegiste.
+            </Ayuda>
+          </div>
           <button
             type="button"
             onClick={mezclar}
@@ -132,10 +139,6 @@ export function FormPartidaTruco({
             Mezclar al azar
           </button>
         </div>
-        <p className="text-xs text-muted-foreground-2">
-          Tocá el equipo de cada uno. Los que no toques no juegan. Con
-          &quot;Mezclar&quot; se reparten al azar los que elegiste.
-        </p>
         {personas.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground-2">
             Todavía nadie confirmó que va a la juntada.
@@ -186,9 +189,15 @@ export function FormPartidaTruco({
       </fieldset>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="anotador" className={labelClass}>
-          ¿Quién anota?
-        </label>
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="anotador" className={labelClass}>
+            ¿Quién anota?
+          </label>
+          <Ayuda titulo="Anotador">
+            Solo el anotador suma los puntos, así no se pisan. Los demás la ven
+            en vivo desde su celu, y el anotador se lo puede pasar a otro.
+          </Ayuda>
+        </div>
         <select
           id="anotador"
           name="anotador"
@@ -202,10 +211,6 @@ export function FormPartidaTruco({
             </option>
           ))}
         </select>
-        <p className="text-xs text-muted-foreground-2">
-          Solo el anotador suma los puntos, así no se pisan. Los demás la ven en
-          vivo desde su celu, y el anotador se lo puede pasar a otro.
-        </p>
       </div>
 
       {state?.error && <p className="text-sm text-primary">{state.error}</p>}

@@ -8,6 +8,7 @@ import {
 } from "@/lib/actions/gastos";
 import type { PersonaCuentas } from "@/lib/cuentas/datos";
 import { formatearPesos, parsearMonto } from "@/lib/cuentas/dinero";
+import { Ayuda } from "@/components/ui/Ayuda";
 import { cn } from "@/lib/utils";
 
 const inputClass =
@@ -162,7 +163,15 @@ export function FormGasto({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className={labelClass}>¿En qué categoría va?</p>
+        <div className="flex items-center gap-1.5">
+          <p className={labelClass}>¿En qué categoría va?</p>
+          <Ayuda titulo="Categoría del gasto">
+            El gasto se divide entre los tildados de esa categoría. Si no
+            encaja en ninguna, elegí las personas a mano. Una categoría nueva
+            arranca con los que van tildados; quién entra se cambia en la
+            pantalla de cuentas.
+          </Ayuda>
+        </div>
         <input type="hidden" name="categoria" value={categoria} />
         <div className="flex flex-wrap gap-2">
           {categorias.map((c) => (
@@ -243,10 +252,6 @@ export function FormGasto({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-xs text-muted-foreground-2">
-              Arranca con los que van tildados. Quién entra se cambia en la
-              pantalla de cuentas.
-            </p>
             {errorNueva && <p className="text-xs text-primary">{errorNueva}</p>}
           </div>
         )}
@@ -262,7 +267,13 @@ export function FormGasto({
       {!elegida && (
         <fieldset className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <legend className={labelClass}>Entre quiénes se divide</legend>
+            <div className="flex items-center gap-1.5">
+              <p className={labelClass}>Entre quiénes se divide</p>
+              <Ayuda titulo="Entre quiénes se divide">
+                Sacá al que se llevó su bebida, o dejá solo a los que armaron
+                la promo.
+              </Ayuda>
+            </div>
             <div className="flex gap-1">
               {atajos.map((atajo) => (
                 <button
@@ -276,10 +287,6 @@ export function FormGasto({
               ))}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground-2">
-            Sacá al que se llevó su bebida, o dejá solo a los que armaron la
-            promo.
-          </p>
           <div className="grid grid-cols-2 gap-2">
             {personas.map((persona) => {
               const marcado = participantes.has(persona.id);
