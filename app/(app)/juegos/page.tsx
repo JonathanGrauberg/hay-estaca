@@ -11,9 +11,23 @@ export default async function JuegosPage() {
       <EncabezadoPagina titulo="Juegos" />
 
       <section className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-        <CardSeccion icon={Spade} titulo="Truco" detalle="Anotador con fósforos" href="/juegos/truco" />
-        <CardSeccion icon={HelpCircle} titulo="¿Quién soy?" detalle="Próximamente" />
-        <CardSeccion icon={Dices} titulo="Dado" detalle="Próximamente" />
+        <CardSeccion
+          icon={Spade}
+          titulo="Truco"
+          detalle="Anotador con fósforos"
+          href="/juegos/truco"
+        />
+        <CardSeccion
+          icon={HelpCircle}
+          titulo="¿Quién soy?"
+          detalle="Próximamente"
+        />
+        <CardSeccion
+          icon={Dices}
+          titulo="Dados"
+          detalle="Tirá de 1 a 6 dados"
+          href="/juegos/dados"
+        />
         <CardSeccion icon={Shuffle} titulo="Ruleta" detalle="Próximamente" />
         <CardSeccion icon={Users} titulo="Equipos" detalle="Próximamente" />
       </section>

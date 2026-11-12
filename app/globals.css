@@ -301,3 +301,88 @@
     animation: none;
   }
 }
+
+/*
+ * Dados 3D (components/juegos/Dados.tsx). Cada dado es un cubo con preserve-3d; para
+ * mostrar una cara se gira el cubo entero, con varias vueltas de más para que "ruede".
+ * --lado es el tamaño del dado.
+ */
+.dado-escena {
+  perspective: 700px;
+  width: var(--lado);
+  height: var(--lado);
+}
+.dado {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 1.4s cubic-bezier(0.15, 0.9, 0.25, 1);
+}
+.dado-cara {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  padding: 14%;
+  border-radius: 18%;
+  background: radial-gradient(circle at 30% 25%, #2c2623, #171312 75%);
+  border: 1px solid #3a322e;
+  box-shadow: inset 0 0 calc(var(--lado) / 6) rgb(0 0 0 / 0.55);
+  backface-visibility: hidden;
+}
+.dado-cara[data-cara="1"] { transform: translateZ(calc(var(--lado) / 2)); }
+.dado-cara[data-cara="6"] { transform: rotateY(180deg) translateZ(calc(var(--lado) / 2)); }
+.dado-cara[data-cara="3"] { transform: rotateY(90deg) translateZ(calc(var(--lado) / 2)); }
+.dado-cara[data-cara="4"] { transform: rotateY(-90deg) translateZ(calc(var(--lado) / 2)); }
+.dado-cara[data-cara="5"] { transform: rotateX(90deg) translateZ(calc(var(--lado) / 2)); }
+.dado-cara[data-cara="2"] { transform: rotateX(-90deg) translateZ(calc(var(--lado) / 2)); }
+.dado-punto {
+  align-self: center;
+  justify-self: center;
+  width: 72%;
+  height: 72%;
+  border-radius: 9999px;
+  background: var(--foreground);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.5);
+}
+.dado-punto.as {
+  width: 95%;
+  height: 95%;
+  background: var(--primary);
+}
+/* El salto mientras gira, y la sombra en el piso que se achica cuando está en el aire. */
+.dado-salto {
+  animation: dado-salto 1.4s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.dado-salto-bis {
+  animation: dado-salto-bis 1.4s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+@keyframes dado-salto-bis {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-55%); }
+  55% { transform: translateY(0); }
+  70% { transform: translateY(-12%); }
+  85%, 100% { transform: translateY(0); }
+}
+@keyframes dado-salto {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-55%); }
+  55% { transform: translateY(0); }
+  70% { transform: translateY(-12%); }
+  85%, 100% { transform: translateY(0); }
+}
+.dado-sombra {
+  animation: dado-sombra 1.4s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+@keyframes dado-sombra {
+  0% { transform: scale(1); opacity: 0.6; }
+  25% { transform: scale(0.55); opacity: 0.25; }
+  55% { transform: scale(1); opacity: 0.6; }
+  70% { transform: scale(0.85); opacity: 0.45; }
+  85%, 100% { transform: scale(1); opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dado { transition-duration: 0.3s; }
+  .dado-salto, .dado-salto-bis, .dado-sombra { animation: none; }
+}
