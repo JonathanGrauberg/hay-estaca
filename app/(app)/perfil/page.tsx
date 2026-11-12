@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { cerrarSesion } from "@/lib/actions/auth";
 import { editarIntegrante } from "@/lib/actions/usuarios";
-import { Avatar } from "@/components/juntadas/Avatar";
+import { rutaFoto } from "@/lib/fotos";
+import { r2Configurado } from "@/lib/r2";
+import { FotoPerfil } from "@/components/fotos/FotoPerfil";
 import { FormAlias } from "@/components/integrantes/FormAlias";
 import { EncargadoFijo } from "@/components/integrantes/EncargadoFijo";
 import { FormCambiarPin } from "@/components/integrantes/FormCambiarPin";
@@ -14,21 +16,34 @@ export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
   const usuario = await requireUsuario();
-  const { telefono, aliasCvu, encargadoCuentas } = await prisma.user.findUniqueOrThrow({
-    where: { id: usuario.id },
-    select: { telefono: true, aliasCvu: true, encargadoCuentas: true },
-  });
+  const [{ telefono, aliasCvu, encargadoCuentas }, propuestas] = await Promise.all([
+    prisma.user.findUniqueOrThrow({
+      where: { id: usuario.id },
+      select: { telefono: true, aliasCvu: true, encargadoCuentas: true },
+    }),
+    prisma.propuestaFoto.findMany({
+      where: { paraUserId: usuario.id },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, key: true, de: { select: { nombre: true, apodo: true } } },
+    }),
+  ]);
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-xl lg:pt-12">
       <EncabezadoPagina titulo="Yo" />
 
       <div className="flex flex-col items-center gap-2">
-        <Avatar
+        <FotoPerfil
+          userId={usuario.id}
           nombre={usuario.nombre}
           apodo={usuario.apodo}
           avatarUrl={usuario.avatarUrl}
-          className="h-20 w-20 border-primary text-xl text-primary"
+          propuestas={propuestas.map((propuesta) => ({
+            id: propuesta.id,
+            ruta: rutaFoto(propuesta.key),
+            de: propuesta.de.apodo || propuesta.de.nombre,
+          }))}
+          habilitado={r2Configurado()}
         />
         <p className="font-heading text-2xl tracking-wide text-foreground">
           {(usuario.apodo || usuario.nombre).toUpperCase()}

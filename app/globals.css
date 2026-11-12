@@ -209,3 +209,16 @@
     animation: none;
   }
 }
+
+/* La barrita de arriba de cada historia (components/fotos/HistoriasJuntada.tsx). */
+.historia-progreso {
+  width: 0;
+  animation-name: progreso-historia;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes progreso-historia {
+  to {
+    width: 100%;
+  }
+}

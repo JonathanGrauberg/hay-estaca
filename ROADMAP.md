@@ -31,6 +31,10 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
   el encargado cierra. Encargados fijos del grupo; si ninguno va, aviso y "Me hago cargo".
 - Calculadora rápida (con teclado en PC).
 - Versión de escritorio: barra lateral y pantallas en dos columnas.
+- Fotos de perfil en Cloudflare R2: cada uno sube la suya y cualquiera le puede proponer
+  una a otro (el dueño acepta o rechaza).
+- Historias por juntada: duran 24 hs y solo las ven los que van (los demás, el FOMO).
+- Bienvenida animada y fueguito de carga.
 - Anotador de truco (/juegos/truco): fósforos, a 30 o a 15, malas y buenas, reglas con
   la falta envido calculada en vivo. La partida se guarda en el celular.
 
@@ -38,9 +42,6 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
 
 ### 4. Ajustes / mi perfil
 - Fecha de cumpleaños + aviso en pantalla (24h antes) y botón "Vaca para el regalo".
-- Foto de perfil: cada uno sube la suya, y cualquiera puede **proponerle** una foto a otro;
-  queda pendiente hasta que el dueño la acepta o la rechaza.
-- Imágenes en Cloudflare R2 (ver "Decisiones").
 
 ### 5. Juegos
 - **¿Quién soy? (el de la frente)**: se elige quiénes juegan (confirmados + invitados),
@@ -59,7 +60,6 @@ del grupo: juntadas, cuentas, juegos, votaciones y estadísticas.
 - Salen de los datos que ya se cargan; tienen sentido cuando haya varias juntadas.
 
 ### 8. Después
-- Fotos que se borran a las 12h (flashes) y pantalla FOMO para los que no fueron.
 - Juego de preguntas y respuestas (hace falta armar el banco de preguntas).
 - Notificaciones push reales con la app cerrada.
 

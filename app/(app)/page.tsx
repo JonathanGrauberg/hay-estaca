@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Calculator,
+  Camera,
   CalendarDays,
   CalendarPlus,
   Dices,
@@ -34,7 +35,7 @@ export default async function InicioPage() {
   // siendo "próxima" hasta que termina el día. Las archivadas no se muestran.
   const hoy = hoyComoFechaDb();
 
-  const [miembros, juntadasProximas, checklistPendientes] = await Promise.all([
+  const [miembros, juntadasProximas, checklistPendientes, fotosPropuestas] = await Promise.all([
     prisma.user.findMany({
       orderBy: { nombre: "asc" },
       select: { id: true, nombre: true, apodo: true, avatarUrl: true },
@@ -57,6 +58,7 @@ export default async function InicioPage() {
         juntada: { select: { fecha: true, hora: true } },
       },
     }),
+    prisma.propuestaFoto.count({ where: { paraUserId: usuario.id } }),
   ]);
 
   const [juntadaDestacada, ...otrasProximas] = juntadasProximas;
@@ -98,6 +100,21 @@ export default async function InicioPage() {
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6">
           <RecordatorioBanner items={checklistPendientes} apodo={usuario.apodo || usuario.nombre} />
+
+          {fotosPropuestas > 0 && (
+            <Link
+              href="/perfil"
+              className="flex items-center gap-3 rounded-lg border-l-4 border-l-primary bg-card px-4 py-3 transition-colors hover:bg-accent"
+            >
+              <Camera className="h-5 w-5 shrink-0 text-primary" />
+              <p className="min-w-0 flex-1 text-sm text-foreground">
+                {fotosPropuestas === 1
+                  ? "Te propusieron una foto de perfil"
+                  : `Te propusieron ${fotosPropuestas} fotos de perfil`}
+              </p>
+              <span className="shrink-0 text-xs font-semibold text-primary">Ver</span>
+            </Link>
+          )}
 
           <AvatarRow miembros={miembrosConEstado} puedeSumar={usuario.esAdmin} />
 

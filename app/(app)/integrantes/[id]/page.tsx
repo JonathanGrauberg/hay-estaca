@@ -7,6 +7,8 @@ import { Avatar } from "@/components/juntadas/Avatar";
 import { EncargadoFijo } from "@/components/integrantes/EncargadoFijo";
 import { FormEditarIntegrante } from "@/components/integrantes/FormEditarIntegrante";
 import { NuevoPin } from "@/components/integrantes/NuevoPin";
+import { ProponerFoto } from "@/components/fotos/ProponerFoto";
+import { r2Configurado } from "@/lib/r2";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
 import { FormConfirmar } from "@/components/ui/FormConfirmar";
 
@@ -44,13 +46,14 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-xl lg:pt-12">
       <EncabezadoPagina titulo={apodo} volverA="/integrantes" />
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-3">
         <Avatar
           nombre={integrante.nombre}
           apodo={integrante.apodo}
           avatarUrl={integrante.avatarUrl}
-          className="h-20 w-20 border-primary text-xl text-primary"
+          className="h-24 w-24 border-primary text-2xl text-primary"
         />
+        {r2Configurado() && <ProponerFoto userId={integrante.id} apodo={apodo} />}
       </div>
 
       {usuario.esAdmin ? (

@@ -39,6 +39,7 @@ model User {
   id               String    @id @default(cuid())
   nombre           String
   apodo            String
+  // Ruta de la foto de perfil ("/fotos/avatars/..."), servida por app/fotos.
   avatarUrl        String?
   telefono         String?
   fechaNacimiento  DateTime? @db.Date
@@ -55,18 +56,21 @@ model User {
   // Admin del grupo: suma y saca integrantes, edita sus datos y les genera PIN nuevo.
   esAdmin          Boolean   @default(false)
 
-  asistencias             Asistencia[]
-  checklistItemsAsignados ChecklistItem[]         @relation("ChecklistAsignado")
-  gastosPagados           Gasto[]                 @relation("GastoPagadoPorUser")
-  gastosParticipa         GastoParticipante[]
-  bonificaciones          Bonificado[]            @relation("BonificadoUser")
-  bonificacionesCubiertas Bonificado[]            @relation("BonificadoCubiertoPor")
-  juntadasAnfitrion       Juntada[]               @relation("JuntadaAnfitrion")
-  invitadosTraidos        Invitado[]              @relation("InvitadoTraidoPor")
-  juntadasEncargado       Juntada[]               @relation("JuntadaEncargadoCuentas")
-  categoriasParticipa     CategoriaParticipante[]
-  pagosHechos             Pago[]                  @relation("PagoDeUser")
-  pagosRecibidos          Pago[]                  @relation("PagoAUser")
+  asistencias              Asistencia[]
+  checklistItemsAsignados  ChecklistItem[]         @relation("ChecklistAsignado")
+  gastosPagados            Gasto[]                 @relation("GastoPagadoPorUser")
+  gastosParticipa          GastoParticipante[]
+  bonificaciones           Bonificado[]            @relation("BonificadoUser")
+  bonificacionesCubiertas  Bonificado[]            @relation("BonificadoCubiertoPor")
+  juntadasAnfitrion        Juntada[]               @relation("JuntadaAnfitrion")
+  invitadosTraidos         Invitado[]              @relation("InvitadoTraidoPor")
+  juntadasEncargado        Juntada[]               @relation("JuntadaEncargadoCuentas")
+  categoriasParticipa      CategoriaParticipante[]
+  pagosHechos              Pago[]                  @relation("PagoDeUser")
+  pagosRecibidos           Pago[]                  @relation("PagoAUser")
+  fotosPropuestasRecibidas PropuestaFoto[]         @relation("PropuestaFotoPara")
+  fotosPropuestasHechas    PropuestaFoto[]         @relation("PropuestaFotoDe")
+  historias                Historia[]
 }
 
 model Juntada {
@@ -90,6 +94,7 @@ model Juntada {
   encargadoCuentas User?           @relation("JuntadaEncargadoCuentas", fields: [encargadoCuentasId], references: [id], onDelete: SetNull)
   categorias       Categoria[]
   pagos            Pago[]
+  historias        Historia[]
   invitados        Invitado[]
   asistencias      Asistencia[]
   checklistItems   ChecklistItem[]
@@ -270,4 +275,37 @@ model Pago {
   @@index([aUserId])
   @@index([deInvitadoId])
   @@index([aInvitadoId])
+}
+
+// Una foto de perfil que alguien le propone a otro: queda pendiente hasta que el
+// dueño la acepta (pasa a ser su avatar) o la rechaza (se borra).
+model PropuestaFoto {
+  id         String   @id @default(cuid())
+  paraUserId String
+  deUserId   String
+  // Clave del objeto en R2 ("avatars/<paraUserId>/<id>.webp").
+  key        String
+  createdAt  DateTime @default(now())
+
+  para User @relation("PropuestaFotoPara", fields: [paraUserId], references: [id], onDelete: Cascade)
+  de   User @relation("PropuestaFotoDe", fields: [deUserId], references: [id], onDelete: Cascade)
+
+  @@index([paraUserId])
+}
+
+// Foto de la juntada que dura 24 horas y solo ven los que van. R2 borra el archivo
+// solo (regla de vida sobre "historias/") y la app no muestra las de más de 24 hs.
+model Historia {
+  id        String   @id @default(cuid())
+  juntadaId String
+  autorId   String
+  // Clave del objeto en R2 ("historias/<juntadaId>/<id>.webp").
+  key       String
+  texto     String?
+  createdAt DateTime @default(now())
+
+  juntada Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  autor   User    @relation(fields: [autorId], references: [id], onDelete: Cascade)
+
+  @@index([juntadaId, createdAt])
 }

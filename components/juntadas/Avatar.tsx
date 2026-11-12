@@ -20,8 +20,8 @@ export function Avatar({ nombre, apodo, avatarUrl, className }: AvatarProps) {
       )}
     >
       {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- avatarUrl es una URL arbitraria del usuario
-        <img src={avatarUrl} alt={nombre} className="h-full w-full object-cover" />
+        // eslint-disable-next-line @next/next/no-img-element -- /fotos/... redirige a un link firmado de R2 que vence: next/image lo cachearía vencido
+        <img src={avatarUrl} alt={nombre} loading="lazy" className="h-full w-full object-cover" />
       ) : (
         iniciales(apodo || nombre)
       )}

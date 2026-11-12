@@ -6,6 +6,9 @@ import { requireUsuario } from "@/lib/auth";
 import { formatFechaLarga } from "@/lib/utils";
 import { formatearPesos } from "@/lib/cuentas/dinero";
 import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
+import { desdeHistoriasVigentes, haceCuanto, rutaFoto } from "@/lib/fotos";
+import { r2Configurado } from "@/lib/r2";
+import { HistoriasJuntada } from "@/components/fotos/HistoriasJuntada";
 import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
 import { ChecklistSection } from "@/components/juntadas/ChecklistSection";
@@ -22,7 +25,8 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
   const usuario = await requireUsuario();
   const { id } = await params;
 
-  const [juntada, miembros, checklistItems, encargado] = await Promise.all([
+  const desde = desdeHistoriasVigentes();
+  const [juntada, miembros, checklistItems, encargado, historias] = await Promise.all([
     prisma.juntada.findUnique({
       where: { id },
       include: {
@@ -42,6 +46,11 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
       include: { asignadoA: usuarioBasico },
     }),
     encargadoDeJuntada(id),
+    prisma.historia.findMany({
+      where: { juntadaId: id, createdAt: { gte: desde } },
+      orderBy: { createdAt: "asc" },
+      include: { autor: { select: { id: true, nombre: true, apodo: true } } },
+    }),
   ]);
 
   if (!juntada) {
@@ -69,6 +78,18 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
     traidoPor: invitado.traidoPor ? invitado.traidoPor.apodo || invitado.traidoPor.nombre : null,
     pagoGastos: invitado._count.gastosPagados > 0,
   }));
+
+  const voy = estadoPorUserId.get(usuario.id) === "voy";
+  const historiasVista = voy
+    ? historias.map((historia) => ({
+        id: historia.id,
+        ruta: rutaFoto(historia.key),
+        texto: historia.texto,
+        autor: historia.autor.apodo || historia.autor.nombre,
+        esMia: historia.autor.id === usuario.id,
+        hace: haceCuanto(historia.createdAt),
+      }))
+    : [];
 
   const totalGastado = juntada.gastos.reduce((total, gasto) => total + gasto.montoCentavos, 0);
 
@@ -108,6 +129,15 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
           <p className="mt-1 text-sm text-muted-foreground-2">{juntada.mensajeFomo}</p>
         )}
       </div>
+
+      {r2Configurado() && (
+        <HistoriasJuntada
+          juntadaId={juntada.id}
+          historias={historiasVista}
+          voy={voy}
+          cantidadOcultas={historias.length}
+        />
+      )}
 
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6">
