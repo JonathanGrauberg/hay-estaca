@@ -31,6 +31,8 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
       apodo: true,
       avatarUrl: true,
       telefono: true,
+      cumpleDia: true,
+      cumpleMes: true,
       encargadoCuentas: true,
       _count: { select: { gastosPagados: true, pagosHechos: true, pagosRecibidos: true } },
     },
@@ -64,6 +66,8 @@ export default async function IntegrantePage({ params }: PageProps<"/integrantes
               nombre: integrante.nombre,
               apodo: integrante.apodo,
               telefono: integrante.telefono ?? "",
+              cumpleDia: integrante.cumpleDia,
+              cumpleMes: integrante.cumpleMes,
             }}
           />
 

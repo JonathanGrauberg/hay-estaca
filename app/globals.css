@@ -386,3 +386,35 @@
   .dado { transition-duration: 0.3s; }
   .dado-salto, .dado-salto-bis, .dado-sombra { animation: none; }
 }
+
+/* Cartel de feliz cumple: papelitos que caen, guirnalda que se mece y la torta. */
+.papelito {
+  position: absolute;
+  top: -5%;
+  animation-name: caer-papelito;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes caer-papelito {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); }
+  to { transform: translate3d(var(--deriva, 0), 110vh, 0) rotate(720deg); }
+}
+.guirnalda {
+  transform-origin: top center;
+  animation: mecer-guirnalda 3s ease-in-out infinite alternate;
+}
+@keyframes mecer-guirnalda {
+  from { transform: rotate(-1.5deg); }
+  to { transform: rotate(1.5deg); }
+}
+.cumple-torta {
+  animation: saltar-torta 1.2s ease-in-out infinite;
+}
+@keyframes saltar-torta {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-10px) rotate(4deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .papelito, .guirnalda, .cumple-torta { animation: none; }
+  .papelito { display: none; }
+}

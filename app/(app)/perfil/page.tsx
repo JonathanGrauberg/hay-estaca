@@ -16,10 +16,10 @@ export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
   const usuario = await requireUsuario();
-  const [{ telefono, aliasCvu, encargadoCuentas }, propuestas] = await Promise.all([
+  const [{ telefono, aliasCvu, encargadoCuentas, cumpleDia, cumpleMes }, propuestas] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: usuario.id },
-      select: { telefono: true, aliasCvu: true, encargadoCuentas: true },
+      select: { telefono: true, aliasCvu: true, encargadoCuentas: true, cumpleDia: true, cumpleMes: true },
     }),
     prisma.propuestaFoto.findMany({
       where: { paraUserId: usuario.id },
@@ -56,7 +56,13 @@ export default async function PerfilPage() {
         </h2>
         <FormEditarIntegrante
           accion={editarIntegrante.bind(null, usuario.id)}
-          valores={{ nombre: usuario.nombre, apodo: usuario.apodo, telefono: telefono ?? "" }}
+          valores={{
+            nombre: usuario.nombre,
+            apodo: usuario.apodo,
+            telefono: telefono ?? "",
+            cumpleDia,
+            cumpleMes,
+          }}
         />
       </section>
 

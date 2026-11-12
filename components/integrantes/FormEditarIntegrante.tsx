@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { EditarIntegranteState } from "@/lib/actions/usuarios";
+import { CampoCumple } from "@/components/integrantes/CampoCumple";
 
 const inputClass =
   "w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground-2 focus:border-primary";
@@ -10,7 +11,13 @@ const labelClass = "text-sm font-medium text-foreground";
 interface FormEditarIntegranteProps {
   // editarIntegrante con el id del integrante ya bindeado.
   accion: (prevState: EditarIntegranteState, formData: FormData) => Promise<EditarIntegranteState>;
-  valores: { nombre: string; apodo: string; telefono: string };
+  valores: {
+    nombre: string;
+    apodo: string;
+    telefono: string;
+    cumpleDia: number | null;
+    cumpleMes: number | null;
+  };
 }
 
 export function FormEditarIntegrante({ accion, valores }: FormEditarIntegranteProps) {
@@ -60,6 +67,8 @@ export function FormEditarIntegrante({ accion, valores }: FormEditarIntegrantePr
           className={inputClass}
         />
       </div>
+
+      <CampoCumple dia={valores.cumpleDia} mes={valores.cumpleMes} />
 
       {state && "error" in state && <p className="text-sm text-primary">{state.error}</p>}
       {state && "ok" in state && <p className="text-sm text-foreground">{state.ok}</p>}

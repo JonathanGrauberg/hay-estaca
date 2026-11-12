@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { guardarSesion, requireUsuario } from "@/lib/auth";
 import { PIN_REGEX, generarPin, hashPin } from "@/lib/auth/pin";
+import { leerCumple } from "@/lib/cumples";
 
 export type CrearIntegranteState = { error: string } | undefined;
 
@@ -56,10 +57,14 @@ export async function crearIntegrante(
   if (!nombre || !apodo) {
     return { error: "Completá nombre y apodo." };
   }
+  const cumple = leerCumple(formData);
+  if ("error" in cumple) {
+    return { error: cumple.error };
+  }
 
   const pin = generarPin();
   await prisma.user.create({
-    data: { nombre, apodo, telefono: telefono || null, pinHash: hashPin(pin) },
+    data: { nombre, apodo, telefono: telefono || null, pinHash: hashPin(pin), ...cumple },
   });
 
   revalidatePath("/", "layout");
@@ -112,7 +117,7 @@ export async function crearPrimerIntegrante(
 
 export type EditarIntegranteState = { error: string } | { ok: string } | undefined;
 
-// Cada uno edita sus datos (nombre, apodo, teléfono); los de los demás, solo el admin.
+// Cada uno edita sus datos (nombre, apodo, teléfono, cumple); los de los demás, solo el admin.
 // El PIN no se toca acá: lo cambia cada uno desde /perfil o el admin genera uno nuevo.
 export async function editarIntegrante(
   userId: string,
@@ -131,10 +136,14 @@ export async function editarIntegrante(
   if (!nombre || !apodo) {
     return { error: "Completá nombre y apodo." };
   }
+  const cumple = leerCumple(formData);
+  if ("error" in cumple) {
+    return { error: cumple.error };
+  }
 
   await prisma.user.update({
     where: { id: userId },
-    data: { nombre, apodo, telefono: telefono || null },
+    data: { nombre, apodo, telefono: telefono || null, ...cumple },
   });
 
   revalidatePath("/", "layout");

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { crearIntegrante } from "@/lib/actions/usuarios";
 import { CompartirAcceso } from "@/components/integrantes/CompartirAcceso";
+import { CampoCumple } from "@/components/integrantes/CampoCumple";
 
 const inputClass =
   "w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground-2 focus:border-primary";
@@ -60,6 +61,8 @@ export function FormSumarIntegrante() {
             className={inputClass}
           />
         </div>
+
+        <CampoCumple />
 
         {state && "error" in state && <p className="text-sm text-primary">{state.error}</p>}
 

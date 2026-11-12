@@ -43,6 +43,9 @@ model User {
   avatarUrl        String?
   telefono         String?
   fechaNacimiento  DateTime? @db.Date
+  // Cumpleaños sin año (día 1-31, mes 1-12): ese día la app muestra el cartel.
+  cumpleDia        Int?
+  cumpleMes        Int?
   // Login por PIN de 4 dígitos: hash scrypt "salt:hash" (lib/auth/pin.ts).
   pinHash          String
   // Después de 5 PINs incorrectos seguidos, el login queda bloqueado unos minutos.
