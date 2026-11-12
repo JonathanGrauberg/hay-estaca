@@ -1,7 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import type { GuardarGastoState } from "@/lib/actions/gastos";
+import { useActionState, useState, useTransition } from "react";
+import { Plus, X } from "lucide-react";
+import {
+  crearCategoriaDesdeGasto,
+  type GuardarGastoState,
+} from "@/lib/actions/gastos";
 import type { PersonaCuentas } from "@/lib/cuentas/datos";
 import { formatearPesos, parsearMonto } from "@/lib/cuentas/dinero";
 import { cn } from "@/lib/utils";
@@ -9,11 +13,23 @@ import { cn } from "@/lib/utils";
 const inputClass =
   "w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground-2 focus:border-primary";
 const labelClass = "text-sm font-medium text-foreground";
+const chip =
+  "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors";
+const chipActivo = "border-primary bg-primary/15 text-foreground";
+const chipInactivo =
+  "border-border bg-card text-muted-foreground hover:text-foreground";
 
 interface FormGastoProps {
+  juntadaId: string;
   // guardarGasto con juntadaId y gastoId (o null) ya bindeados.
-  accion: (prevState: GuardarGastoState, formData: FormData) => Promise<GuardarGastoState>;
-  personas: Pick<PersonaCuentas, "id" | "nombre" | "esInvitado" | "vaPorDefecto">[];
+  accion: (
+    prevState: GuardarGastoState,
+    formData: FormData,
+  ) => Promise<GuardarGastoState>;
+  personas: Pick<
+    PersonaCuentas,
+    "id" | "nombre" | "esInvitado" | "vaPorDefecto"
+  >[];
   categorias: { id: string; nombre: string; cantidad: number }[];
   valores: {
     concepto: string;
@@ -26,17 +42,48 @@ interface FormGastoProps {
   labelBoton: string;
 }
 
-export function FormGasto({ accion, personas, categorias, valores, labelBoton }: FormGastoProps) {
+export function FormGasto({
+  juntadaId,
+  accion,
+  personas,
+  categorias: categoriasIniciales,
+  valores,
+  labelBoton,
+}: FormGastoProps) {
   const [state, formAction, pending] = useActionState(accion, undefined);
   const [monto, setMonto] = useState(valores.monto);
+  const [categorias, setCategorias] = useState(categoriasIniciales);
   const [categoria, setCategoria] = useState(valores.categoria);
-  const [participantes, setParticipantes] = useState(new Set(valores.participantes));
+  const [participantes, setParticipantes] = useState(
+    new Set(valores.participantes),
+  );
+  const [creando, setCreando] = useState(false);
+  const [nueva, setNueva] = useState("");
+  const [errorNueva, setErrorNueva] = useState<string | null>(null);
+  const [creandoPending, startCrear] = useTransition();
+
+  function crearNueva() {
+    setErrorNueva(null);
+    startCrear(async () => {
+      const resultado = await crearCategoriaDesdeGasto(juntadaId, nueva);
+      if ("error" in resultado) {
+        setErrorNueva(resultado.error);
+        return;
+      }
+      setCategorias((actuales) => [...actuales, resultado]);
+      setCategoria(resultado.id);
+      setCreando(false);
+      setNueva("");
+    });
+  }
 
   const elegida = categorias.find((c) => c.id === categoria);
   const cantidad = elegida ? elegida.cantidad : participantes.size;
   const montoCentavos = parsearMonto(monto);
   const porCabeza =
-    montoCentavos && cantidad > 0 ? formatearPesos(Math.ceil(montoCentavos / cantidad)) : null;
+    montoCentavos && cantidad > 0
+      ? formatearPesos(Math.ceil(montoCentavos / cantidad))
+      : null;
 
   function alternar(id: string) {
     setParticipantes((actuales) => {
@@ -51,7 +98,10 @@ export function FormGasto({ accion, personas, categorias, valores, labelBoton }:
   }
 
   const atajos = [
-    { label: "Los que van", ids: personas.filter((p) => p.vaPorDefecto).map((p) => p.id) },
+    {
+      label: "Los que van",
+      ids: personas.filter((p) => p.vaPorDefecto).map((p) => p.id),
+    },
     { label: "Todos", ids: personas.map((p) => p.id) },
     { label: "Nadie", ids: [] },
   ];
@@ -111,26 +161,95 @@ export function FormGasto({ accion, personas, categorias, valores, labelBoton }:
         </select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="categoria" className={labelClass}>
-          Va en
-        </label>
-        <select
-          id="categoria"
-          name="categoria"
-          value={categoria}
-          onChange={(event) => setCategoria(event.target.value)}
-          className={inputClass}
-        >
+      <div className="flex flex-col gap-2">
+        <p className={labelClass}>¿En qué categoría va?</p>
+        <input type="hidden" name="categoria" value={categoria} />
+        <div className="flex flex-wrap gap-2">
           {categorias.map((c) => (
-            <option key={c.id} value={c.id} className="bg-card">
-              {c.nombre} ({c.cantidad} {c.cantidad === 1 ? "persona" : "personas"})
-            </option>
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCategoria(c.id)}
+              aria-pressed={categoria === c.id}
+              className={cn(
+                chip,
+                categoria === c.id ? chipActivo : chipInactivo,
+              )}
+            >
+              {c.nombre}
+              <span className="ml-1 text-xs opacity-70">· {c.cantidad}</span>
+            </button>
           ))}
-          <option value="" className="bg-card">
+          <button
+            type="button"
+            onClick={() => setCategoria("")}
+            aria-pressed={categoria === ""}
+            className={cn(chip, categoria === "" ? chipActivo : chipInactivo)}
+          >
             Elegir personas a mano
-          </option>
-        </select>
+          </button>
+          {!creando && (
+            <button
+              type="button"
+              onClick={() => setCreando(true)}
+              className={cn(
+                chip,
+                "border-dashed border-border text-muted-foreground-2 hover:border-primary hover:text-primary",
+              )}
+            >
+              <Plus className="mr-1 inline h-3.5 w-3.5" />
+              Nueva categoría
+            </button>
+          )}
+        </div>
+        {creando && (
+          <div className="flex flex-col gap-1">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={nueva}
+                onChange={(event) => setNueva(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter crea la categoría, no manda el gasto.
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    crearNueva();
+                  }
+                }}
+                maxLength={40}
+                autoFocus
+                placeholder="Ej: bebida, picada, hielo"
+                aria-label="Nombre de la categoría nueva"
+                className={cn(inputClass, "min-w-0 flex-1")}
+              />
+              <button
+                type="button"
+                onClick={crearNueva}
+                disabled={creandoPending}
+                className="shrink-0 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {creandoPending ? "…" : "Crear"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreando(false);
+                  setNueva("");
+                  setErrorNueva(null);
+                }}
+                aria-label="Cancelar"
+                className="shrink-0 text-muted-foreground-2 hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground-2">
+              Arranca con los que van tildados. Quién entra se cambia en la
+              pantalla de cuentas.
+            </p>
+            {errorNueva && <p className="text-xs text-primary">{errorNueva}</p>}
+          </div>
+        )}
         {elegida && (
           <p className="text-sm text-muted-foreground">
             {porCabeza
@@ -158,7 +277,8 @@ export function FormGasto({ accion, personas, categorias, valores, labelBoton }:
             </div>
           </div>
           <p className="text-xs text-muted-foreground-2">
-            Sacá al que se llevó su bebida, o dejá solo a los que armaron la promo.
+            Sacá al que se llevó su bebida, o dejá solo a los que armaron la
+            promo.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {personas.map((persona) => {
@@ -170,7 +290,7 @@ export function FormGasto({ accion, personas, categorias, valores, labelBoton }:
                     "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
                     marcado
                       ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-card text-muted-foreground-2"
+                      : "border-border bg-card text-muted-foreground-2",
                   )}
                 >
                   <input
@@ -183,7 +303,9 @@ export function FormGasto({ accion, personas, categorias, valores, labelBoton }:
                   />
                   <span className="truncate">
                     {persona.nombre}
-                    {persona.esInvitado && <span className="text-muted-foreground-2"> · inv.</span>}
+                    {persona.esInvitado && (
+                      <span className="text-muted-foreground-2"> · inv.</span>
+                    )}
                   </span>
                 </label>
               );

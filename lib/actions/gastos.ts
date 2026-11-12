@@ -4,9 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
-import { puedeModificarJuntada, SOLO_LOS_QUE_VAN } from "@/lib/juntadas/permisos";
+import {
+  puedeModificarJuntada,
+  SOLO_LOS_QUE_VAN,
+} from "@/lib/juntadas/permisos";
 import { parsearMonto } from "@/lib/cuentas/dinero";
-import { parsearPersona, personaId, type PersonaRef } from "@/lib/cuentas/personas";
+import {
+  parsearPersona,
+  personaId,
+  type PersonaRef,
+} from "@/lib/cuentas/personas";
 
 function revalidarCuentas(juntadaId: string) {
   revalidatePath(`/juntadas/${juntadaId}`, "layout");
@@ -45,6 +52,42 @@ async function cuentasAbiertas(juntadaId: string) {
 const ERROR_DIVIDIDAS =
   "Las cuentas ya se dividieron: pedile al encargado que vuelva a abrir la carga.";
 
+// Una categoría nueva arranca con los que van y los invitados tildados.
+async function participantesPorDefecto(juntadaId: string) {
+  const [confirmados, invitados] = await Promise.all([
+    prisma.asistencia.findMany({
+      where: { juntadaId, estado: "voy" },
+      select: { userId: true },
+    }),
+    prisma.invitado.findMany({ where: { juntadaId }, select: { id: true } }),
+  ]);
+  return [
+    ...confirmados.map(({ userId }) => ({ userId, invitadoId: null })),
+    ...invitados.map((invitado) => ({ userId: null, invitadoId: invitado.id })),
+  ];
+}
+
+function nombreCategoria(texto: string) {
+  const nombre = texto.trim().slice(0, 40);
+  return nombre ? nombre[0].toUpperCase() + nombre.slice(1) : "";
+}
+
+async function nombreRepetido(
+  juntadaId: string,
+  nombre: string,
+  salvoId?: string,
+) {
+  const otra = await prisma.categoria.findFirst({
+    where: {
+      juntadaId,
+      nombre: { equals: nombre, mode: "insensitive" },
+      ...(salvoId ? { id: { not: salvoId } } : {}),
+    },
+    select: { id: true },
+  });
+  return otra !== null;
+}
+
 export type GuardarGastoState = { error: string } | undefined;
 
 export async function guardarGasto(
@@ -52,7 +95,7 @@ export async function guardarGasto(
   // null = gasto nuevo.
   gastoId: string | null,
   _prevState: GuardarGastoState,
-  formData: FormData
+  formData: FormData,
 ): Promise<GuardarGastoState> {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
@@ -66,13 +109,18 @@ export async function guardarGasto(
   // Vacío = "elegir a mano" (una promo entre 3, o los gastos de antes de las categorías).
   const categoriaId = String(formData.get("categoria") ?? "");
   const categoria = categoriaId
-    ? await prisma.categoria.findFirst({ where: { id: categoriaId, juntadaId } })
+    ? await prisma.categoria.findFirst({
+        where: { id: categoriaId, juntadaId },
+      })
     : null;
-  const concepto = String(formData.get("concepto") ?? "").trim() || categoria?.nombre || "";
+  const concepto =
+    String(formData.get("concepto") ?? "").trim() || categoria?.nombre || "";
   const montoCentavos = parsearMonto(String(formData.get("monto") ?? ""));
   const validas = await personasDeJuntada(juntadaId);
   const pagador = leerPersona(String(formData.get("pagadoPor") ?? ""), validas);
-  const participantes = [...new Set(formData.getAll("participantes").map(String))]
+  const participantes = [
+    ...new Set(formData.getAll("participantes").map(String)),
+  ]
     .map((valor) => leerPersona(valor, validas))
     .filter((persona): persona is PersonaRef => persona !== null);
 
@@ -122,7 +170,11 @@ export async function guardarGasto(
   redirect(`/juntadas/${juntadaId}/cuentas`);
 }
 
-export async function borrarGasto(juntadaId: string, gastoId: string, _formData: FormData) {
+export async function borrarGasto(
+  juntadaId: string,
+  gastoId: string,
+  _formData: FormData,
+) {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
     return;
@@ -143,7 +195,7 @@ export type BonificarState = { error: string } | undefined;
 export async function bonificar(
   juntadaId: string,
   _prevState: BonificarState,
-  formData: FormData
+  formData: FormData,
 ): Promise<BonificarState> {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
@@ -171,19 +223,32 @@ export async function bonificar(
 
   const cubiertoPorUserId = cubridor?.userId ?? null;
   const existente = await prisma.bonificado.findFirst({
-    where: { juntadaId, userId: persona.userId, invitadoId: persona.invitadoId },
+    where: {
+      juntadaId,
+      userId: persona.userId,
+      invitadoId: persona.invitadoId,
+    },
   });
 
   if (existente) {
-    await prisma.bonificado.update({ where: { id: existente.id }, data: { cubiertoPorUserId } });
+    await prisma.bonificado.update({
+      where: { id: existente.id },
+      data: { cubiertoPorUserId },
+    });
   } else {
-    await prisma.bonificado.create({ data: { juntadaId, ...persona, cubiertoPorUserId } });
+    await prisma.bonificado.create({
+      data: { juntadaId, ...persona, cubiertoPorUserId },
+    });
   }
 
   revalidarCuentas(juntadaId);
 }
 
-export async function quitarBonificado(juntadaId: string, bonificadoId: string, _formData: FormData) {
+export async function quitarBonificado(
+  juntadaId: string,
+  bonificadoId: string,
+  _formData: FormData,
+) {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
     return;
@@ -193,7 +258,9 @@ export async function quitarBonificado(juntadaId: string, bonificadoId: string, 
     return;
   }
 
-  await prisma.bonificado.deleteMany({ where: { id: bonificadoId, juntadaId } });
+  await prisma.bonificado.deleteMany({
+    where: { id: bonificadoId, juntadaId },
+  });
 
   revalidarCuentas(juntadaId);
 }
@@ -207,7 +274,7 @@ export type CrearCategoriasState = { error: string } | undefined;
 export async function crearCategorias(
   juntadaId: string,
   _prevState: CrearCategoriasState,
-  formData: FormData
+  formData: FormData,
 ): Promise<CrearCategoriasState> {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
@@ -222,7 +289,9 @@ export async function crearCategorias(
     where: { juntadaId },
     select: { nombre: true },
   });
-  const yaEstan = new Set(existentes.map((categoria) => categoria.nombre.toLowerCase()));
+  const yaEstan = new Set(
+    existentes.map((categoria) => categoria.nombre.toLowerCase()),
+  );
   const nombres = [
     ...new Map(
       // getAll: llegan el input y, si se tocó una sugerencia, también el botón.
@@ -233,35 +302,37 @@ export async function crearCategorias(
         .split(",")
         .map((nombre) => nombre.trim().slice(0, 40))
         .filter((nombre) => nombre && !yaEstan.has(nombre.toLowerCase()))
-        .map((nombre) => [nombre.toLowerCase(), nombre[0].toUpperCase() + nombre.slice(1)])
+        .map((nombre) => [
+          nombre.toLowerCase(),
+          nombre[0].toUpperCase() + nombre.slice(1),
+        ]),
     ).values(),
   ];
 
   if (nombres.length === 0) {
-    return { error: "Escribí qué se divide (ej: comida, bebida) o una que no esté." };
+    return {
+      error: "Escribí qué se divide (ej: comida, bebida) o una que no esté.",
+    };
   }
 
-  const [confirmados, invitados] = await Promise.all([
-    prisma.asistencia.findMany({ where: { juntadaId, estado: "voy" }, select: { userId: true } }),
-    prisma.invitado.findMany({ where: { juntadaId }, select: { id: true } }),
-  ]);
-  const participantes = [
-    ...confirmados.map(({ userId }) => ({ userId, invitadoId: null })),
-    ...invitados.map((invitado) => ({ userId: null, invitadoId: invitado.id })),
-  ];
+  const participantes = await participantesPorDefecto(juntadaId);
 
   await prisma.$transaction(
     nombres.map((nombre) =>
       prisma.categoria.create({
         data: { juntadaId, nombre, participantes: { create: participantes } },
-      })
-    )
+      }),
+    ),
   );
 
   revalidarCuentas(juntadaId);
 }
 
-export async function borrarCategoria(juntadaId: string, categoriaId: string, _formData: FormData) {
+export async function borrarCategoria(
+  juntadaId: string,
+  categoriaId: string,
+  _formData: FormData,
+) {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
     return;
@@ -280,7 +351,10 @@ export async function borrarCategoria(juntadaId: string, categoriaId: string, _f
 
 async function categoriaYPersonas(juntadaId: string, categoriaId: string) {
   const [categoria, validas] = await Promise.all([
-    prisma.categoria.findFirst({ where: { id: categoriaId, juntadaId }, select: { id: true } }),
+    prisma.categoria.findFirst({
+      where: { id: categoriaId, juntadaId },
+      select: { id: true },
+    }),
     personasDeJuntada(juntadaId),
   ]);
   return { categoria, validas };
@@ -292,7 +366,7 @@ export async function marcarEnCategoria(
   juntadaId: string,
   categoriaId: string,
   persona: string,
-  incluido: boolean
+  incluido: boolean,
 ) {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
@@ -303,7 +377,10 @@ export async function marcarEnCategoria(
     return;
   }
 
-  const { categoria, validas } = await categoriaYPersonas(juntadaId, categoriaId);
+  const { categoria, validas } = await categoriaYPersonas(
+    juntadaId,
+    categoriaId,
+  );
   const ref = leerPersona(persona, validas);
   if (!categoria || !ref) {
     return;
@@ -311,7 +388,9 @@ export async function marcarEnCategoria(
 
   const donde = { categoriaId, userId: ref.userId, invitadoId: ref.invitadoId };
   if (incluido) {
-    const existente = await prisma.categoriaParticipante.findFirst({ where: donde });
+    const existente = await prisma.categoriaParticipante.findFirst({
+      where: donde,
+    });
     if (!existente) {
       await prisma.categoriaParticipante.create({ data: donde });
     }
@@ -326,7 +405,7 @@ export async function marcarEnCategoria(
 export async function marcarTodosEnCategoria(
   juntadaId: string,
   categoriaId: string,
-  personas: string[]
+  personas: string[],
 ) {
   const usuario = await requireUsuario();
   if (!(await puedeModificarJuntada(juntadaId, usuario))) {
@@ -337,7 +416,10 @@ export async function marcarTodosEnCategoria(
     return;
   }
 
-  const { categoria, validas } = await categoriaYPersonas(juntadaId, categoriaId);
+  const { categoria, validas } = await categoriaYPersonas(
+    juntadaId,
+    categoriaId,
+  );
   if (!categoria) {
     return;
   }
@@ -353,4 +435,74 @@ export async function marcarTodosEnCategoria(
   ]);
 
   revalidarCuentas(juntadaId);
+}
+
+export type CategoriaCreada =
+  { error: string } | { id: string; nombre: string; cantidad: number };
+
+// Desde el formulario del gasto: crea la categoría y la deja elegida, sin salir.
+export async function crearCategoriaDesdeGasto(
+  juntadaId: string,
+  texto: string,
+): Promise<CategoriaCreada> {
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return { error: ERROR_DIVIDIDAS };
+  }
+
+  const nombre = nombreCategoria(texto);
+  if (!nombre) {
+    return { error: "Escribí el nombre de la categoría (ej: bebida)." };
+  }
+  if (await nombreRepetido(juntadaId, nombre)) {
+    return { error: `Ya hay una categoría ${nombre}.` };
+  }
+
+  const participantes = await participantesPorDefecto(juntadaId);
+  const categoria = await prisma.categoria.create({
+    data: { juntadaId, nombre, participantes: { create: participantes } },
+    select: { id: true, nombre: true },
+  });
+
+  revalidarCuentas(juntadaId);
+  return { ...categoria, cantidad: participantes.length };
+}
+
+export type RenombrarCategoriaState =
+  { error: string } | { ok: true } | undefined;
+
+// Solo cambia el nombre: los gastos y los tildados siguen colgados del mismo id, así
+// que las cuentas no se mueven.
+export async function renombrarCategoria(
+  juntadaId: string,
+  categoriaId: string,
+  _prevState: RenombrarCategoriaState,
+  formData: FormData,
+): Promise<RenombrarCategoriaState> {
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
+  if (!(await cuentasAbiertas(juntadaId))) {
+    return { error: ERROR_DIVIDIDAS };
+  }
+
+  const nombre = nombreCategoria(String(formData.get("nombre") ?? ""));
+  if (!nombre) {
+    return { error: "Escribí un nombre." };
+  }
+  if (await nombreRepetido(juntadaId, nombre, categoriaId)) {
+    return { error: `Ya hay una categoría ${nombre}.` };
+  }
+
+  await prisma.categoria.updateMany({
+    where: { id: categoriaId, juntadaId },
+    data: { nombre },
+  });
+
+  revalidarCuentas(juntadaId);
+  return { ok: true };
 }
