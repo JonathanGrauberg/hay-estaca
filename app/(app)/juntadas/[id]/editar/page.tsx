@@ -68,14 +68,17 @@ export default async function EditarJuntadaPage({ params }: PageProps<"/juntadas
           {archivada ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
           {archivada ? "Desarchivar" : "Archivar"}
         </FormConfirmar>
-        <FormConfirmar
-          action={borrarJuntada.bind(null, juntada.id)}
-          mensaje={`¿Borrar "${juntada.nombre}" para siempre? Se pierden asistencias, checklist e invitados.`}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:border-primary"
-        >
-          <Trash2 className="h-4 w-4" />
-          Borrar juntada
-        </FormConfirmar>
+        {/* Borrar es para siempre: solo el admin. */}
+        {usuario.esAdmin && (
+          <FormConfirmar
+            action={borrarJuntada.bind(null, juntada.id)}
+            mensaje={`¿Borrar "${juntada.nombre}" para siempre? Se pierden asistencias, gastos, checklist, invitados, historias y encuestas. No se puede deshacer.`}
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:border-primary"
+          >
+            <Trash2 className="h-4 w-4" />
+            Borrar juntada
+          </FormConfirmar>
+        )}
       </section>
     </main>
   );

@@ -134,13 +134,15 @@ export async function cambiarArchivoJuntada(juntadaId: string, archivar: boolean
   revalidatePath(`/juntadas/${juntadaId}`);
 }
 
+// Borrar es para siempre: solo el admin del grupo. Los demás pueden archivarla.
 export async function borrarJuntada(juntadaId: string, _formData: FormData) {
   const usuario = await requireUsuario();
-  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+  if (!usuario.esAdmin) {
     return;
   }
 
-  // Asistencias, checklist, invitados y gastos se borran en cascada (schema).
+  // Asistencias, checklist, invitados, gastos, historias, encuestas y partidas se
+  // borran en cascada (schema).
   await prisma.juntada.delete({ where: { id: juntadaId } });
 
   revalidatePath("/");
