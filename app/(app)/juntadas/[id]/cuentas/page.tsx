@@ -19,7 +19,7 @@ import {
   reabrirCuentas,
   volverACargar,
 } from "@/lib/actions/casaMoneda";
-import { cargarCuentas } from "@/lib/cuentas/datos";
+import { cargarCuentas, miResumen } from "@/lib/cuentas/datos";
 import { puedeModificarJuntada } from "@/lib/juntadas/permisos";
 import { formatearPesos } from "@/lib/cuentas/dinero";
 import { personaId } from "@/lib/cuentas/personas";
@@ -69,7 +69,10 @@ export default async function CuentasJuntadaPage({
 
   const abiertas = cuentas.estado === "abiertas";
   const soyEncargado = cuentas.encargado?.id === usuario.id;
-  const miPendiente = cuentas.pendiente[yo] ?? 0;
+  // Separado, sin compensar: cada uno le paga a quien compró.
+  const { teDeben, debes, deQuienes, aQuienes } = miResumen(cuentas, yo);
+  const detalle = (lista: { nombre: string; centavos: number }[]) =>
+    lista.map((x) => `${x.nombre} ${formatearPesos(x.centavos)}`).join(" · ");
 
   const conMovimiento = cuentas.personas.filter(
     (p) => (cuentas.pagado[p.id] ?? 0) > 0 || (cuentas.parte[p.id] ?? 0) > 0,
@@ -211,17 +214,29 @@ export default async function CuentasJuntadaPage({
               {formatearPesos(cuentas.totalCentavos)}
             </p>
           </div>
-          {miPendiente !== 0 && (
-            <p
-              className={cn(
-                "text-right text-sm font-semibold",
-                miPendiente > 0 ? "text-foreground" : "text-primary",
+          {(teDeben > 0 || debes > 0) && (
+            <div className="flex flex-col items-end text-right text-sm font-semibold">
+              {teDeben > 0 && (
+                <>
+                  <p className="text-foreground">
+                    Te deben {formatearPesos(teDeben)}
+                  </p>
+                  <p className="text-xs font-normal text-muted-foreground-2">
+                    {detalle(deQuienes)}
+                  </p>
+                </>
               )}
-            >
-              {miPendiente > 0
-                ? `Te deben ${formatearPesos(miPendiente)}`
-                : `Debés ${formatearPesos(-miPendiente)}`}
-            </p>
+              {debes > 0 && (
+                <>
+                  <p className="mt-1 text-primary">
+                    Debés {formatearPesos(debes)}
+                  </p>
+                  <p className="text-xs font-normal text-muted-foreground-2">
+                    a {detalle(aQuienes)}
+                  </p>
+                </>
+              )}
+            </div>
           )}
         </div>
         <EncargadoCuentas

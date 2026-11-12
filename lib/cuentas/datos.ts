@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   aplicarPagos,
   calcularCuentas,
-  calcularTransferencias,
+  transferenciasDirectas,
   type PersonaId,
   type Transferencia,
 } from "@/lib/cuentas/calcular";
@@ -208,6 +208,48 @@ export async function cargarCuentas(
     parte: Object.fromEntries(resultado.parte),
     saldo: Object.fromEntries(resultado.saldo),
     pendiente: Object.fromEntries(pendiente),
-    transferencias: calcularTransferencias(pendiente),
+    transferencias: transferenciasDirectas(resultado.deudas, pagosVista),
   };
+}
+
+// Lo de una persona, separado: cuánto le tienen que pasar y cuánto tiene que pasar ella
+// (ej: te deben el fernet y debés la carne). Sale de las transferencias pendientes.
+// También quién te debe y a quién le debés, con nombre y monto.
+export function miResumen(
+  cuentas: Pick<CuentasJuntada, "transferencias" | "personas">,
+  yo: PersonaId,
+) {
+  const nombre = new Map(cuentas.personas.map((p) => [p.id, p.nombre]));
+  const conNombre = (id: PersonaId, centavos: number) => ({
+    id,
+    nombre: nombre.get(id) ?? "?",
+    centavos,
+  });
+  const deQuienes = cuentas.transferencias
+    .filter((t) => t.a === yo)
+    .map((t) => conNombre(t.de, t.centavos));
+  const aQuienes = cuentas.transferencias
+    .filter((t) => t.de === yo)
+    .map((t) => conNombre(t.a, t.centavos));
+  const suma = (lista: { centavos: number }[]) =>
+    lista.reduce((total, x) => total + x.centavos, 0);
+  return {
+    teDeben: suma(deQuienes),
+    debes: suma(aQuienes),
+    deQuienes,
+    aQuienes,
+  };
+}
+
+export type PersonaMonto = ReturnType<typeof miResumen>["deQuienes"][number];
+
+// Junta los montos de la misma persona (ej: lo que te debe Cabra en varias juntadas),
+// de mayor a menor.
+export function sumarPorPersona(listas: PersonaMonto[][]): PersonaMonto[] {
+  const porId = new Map<PersonaId, PersonaMonto>();
+  for (const x of listas.flat()) {
+    const actual = porId.get(x.id);
+    porId.set(x.id, actual ? { ...actual, centavos: actual.centavos + x.centavos } : x);
+  }
+  return [...porId.values()].sort((a, b) => b.centavos - a.centavos);
 }
