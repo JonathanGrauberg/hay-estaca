@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import { puedeModificarJuntada, SOLO_LOS_QUE_VAN } from "@/lib/juntadas/permisos";
 import { parsearMonto } from "@/lib/cuentas/dinero";
 import { parsearPersona, personaId, type PersonaRef } from "@/lib/cuentas/personas";
 
@@ -53,7 +54,10 @@ export async function guardarGasto(
   _prevState: GuardarGastoState,
   formData: FormData
 ): Promise<GuardarGastoState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
 
   if (!(await cuentasAbiertas(juntadaId))) {
     return { error: ERROR_DIVIDIDAS };
@@ -119,7 +123,10 @@ export async function guardarGasto(
 }
 
 export async function borrarGasto(juntadaId: string, gastoId: string, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   if (await cuentasAbiertas(juntadaId)) {
     await prisma.gasto.deleteMany({ where: { id: gastoId, juntadaId } });
@@ -138,7 +145,10 @@ export async function bonificar(
   _prevState: BonificarState,
   formData: FormData
 ): Promise<BonificarState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
 
   if (!(await cuentasAbiertas(juntadaId))) {
     return { error: ERROR_DIVIDIDAS };
@@ -174,7 +184,10 @@ export async function bonificar(
 }
 
 export async function quitarBonificado(juntadaId: string, bonificadoId: string, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   if (!(await cuentasAbiertas(juntadaId))) {
     return;
@@ -196,7 +209,10 @@ export async function crearCategorias(
   _prevState: CrearCategoriasState,
   formData: FormData
 ): Promise<CrearCategoriasState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
 
   if (!(await cuentasAbiertas(juntadaId))) {
     return { error: ERROR_DIVIDIDAS };
@@ -246,7 +262,10 @@ export async function crearCategorias(
 }
 
 export async function borrarCategoria(juntadaId: string, categoriaId: string, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   // Si tiene gastos no se borra: quedarían sin saber entre quiénes se dividen.
   const gastos = await prisma.gasto.count({ where: { categoriaId } });
@@ -275,7 +294,10 @@ export async function marcarEnCategoria(
   persona: string,
   incluido: boolean
 ) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   if (!(await cuentasAbiertas(juntadaId))) {
     return;
@@ -306,7 +328,10 @@ export async function marcarTodosEnCategoria(
   categoriaId: string,
   personas: string[]
 ) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   if (!(await cuentasAbiertas(juntadaId))) {
     return;

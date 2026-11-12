@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react";
 import { requireUsuario } from "@/lib/auth";
 import { borrarGasto, guardarGasto } from "@/lib/actions/gastos";
 import { cargarCuentas } from "@/lib/cuentas/datos";
+import { puedeModificarJuntada } from "@/lib/juntadas/permisos";
 import { centavosAInput } from "@/lib/cuentas/dinero";
 import { FormGasto } from "@/components/cuentas/FormGasto";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function EditarGastoPage({
   params,
 }: PageProps<"/juntadas/[id]/cuentas/gasto/[gastoId]">) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
   const { id, gastoId } = await params;
 
   const { personas, gastos, categorias, estado } = await cargarCuentas(id);
@@ -21,7 +22,7 @@ export default async function EditarGastoPage({
   if (!gasto) {
     notFound();
   }
-  if (estado !== "abiertas") {
+  if (estado !== "abiertas" || !(await puedeModificarJuntada(id, usuario))) {
     redirect(`/juntadas/${id}/cuentas`);
   }
 

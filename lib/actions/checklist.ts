@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import { puedeModificarJuntada, SOLO_LOS_QUE_VAN } from "@/lib/juntadas/permisos";
 import type { TipoChecklistItem } from "@/app/generated/prisma/enums";
 
 export type CrearChecklistItemState = { error: string } | undefined;
@@ -13,7 +14,10 @@ export async function crearChecklistItem(
   _prevState: CrearChecklistItemState,
   formData: FormData
 ): Promise<CrearChecklistItemState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
   const descripcion = String(formData.get("descripcion") ?? "").trim();
 
   if (!descripcion) {
@@ -40,6 +44,9 @@ export async function togglearChecklistItem(
   _formData: FormData
 ) {
   const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   await prisma.checklistItem.updateMany({
     where: { id: itemId, tipo: "grupal", asignadoAUserId: usuario.id },
@@ -54,7 +61,10 @@ export async function togglearChecklistItem(
 // responsable. El where exige que siga sin asignar al momento de aplicarse, para
 // evitar pisarle la asignación a otra persona por una carrera entre dos requests.
 export async function asignarChecklistItem(juntadaId: string, itemId: string, formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
   const userId = String(formData.get("userId") ?? "").trim();
 
   if (!userId) {
@@ -79,6 +89,9 @@ export async function desasignarChecklistItem(
   _formData: FormData
 ) {
   const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   await prisma.checklistItem.updateMany({
     where: { id: itemId, tipo: "grupal", asignadoAUserId: usuario.id },
@@ -90,7 +103,10 @@ export async function desasignarChecklistItem(
 }
 
 export async function borrarChecklistItem(juntadaId: string, itemId: string, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
   await prisma.checklistItem.delete({ where: { id: itemId } });
 
   revalidatePath(`/juntadas/${juntadaId}`);

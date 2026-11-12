@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import { puedeModificarJuntada } from "@/lib/juntadas/permisos";
 import { borrarJuntada, cambiarArchivoJuntada, editarJuntada } from "@/lib/actions/juntadas";
 import { FormJuntada } from "@/components/juntadas/FormJuntada";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
@@ -10,8 +11,11 @@ import { FormConfirmar } from "@/components/ui/FormConfirmar";
 export const dynamic = "force-dynamic";
 
 export default async function EditarJuntadaPage({ params }: PageProps<"/juntadas/[id]/editar">) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
   const { id } = await params;
+  if (!(await puedeModificarJuntada(id, usuario))) {
+    redirect(`/juntadas/${id}`);
+  }
 
   const [juntada, miembros] = await Promise.all([
     prisma.juntada.findUnique({ where: { id } }),

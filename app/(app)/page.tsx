@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CalendarPlus,
   Dices,
-  Flame,
   Plus,
   Trophy,
   User,
@@ -25,6 +24,7 @@ import { EmptyState } from "@/components/juntadas/EmptyState";
 import { RecordatorioBanner } from "@/components/juntadas/RecordatorioBanner";
 import { RsvpBotones } from "@/components/juntadas/RsvpBotones";
 import { CardSeccion } from "@/components/inicio/CardSeccion";
+import { CirculoHistoriasInicio } from "@/components/fotos/CirculoHistoriasInicio";
 
 // La lista de miembros y el estado de asistencia cambian seguido (RSVPs en vivo),
 // así que esta página se renderiza siempre en el servidor por request, nunca estática.
@@ -72,7 +72,12 @@ export default async function InicioPage() {
     prisma.juntada.findMany({
       where: { estado: { not: "archivada" }, historias: { some: { createdAt: { gte: desde } } } },
       orderBy: [{ fecha: "desc" }, { hora: "desc" }],
-      select: { id: true, nombre: true },
+      select: {
+        id: true,
+        nombre: true,
+        _count: { select: { historias: { where: { createdAt: { gte: desde } } } } },
+        asistencias: { where: { userId: usuario.id, estado: "voy" }, select: { userId: true } },
+      },
     }),
   ]);
 
@@ -138,20 +143,13 @@ export default async function InicioPage() {
               </h2>
               <div className="flex gap-4 overflow-x-auto px-1 py-1">
                 {conHistorias.map((juntada) => (
-                  <Link
+                  <CirculoHistoriasInicio
                     key={juntada.id}
-                    href={`/juntadas/${juntada.id}?historias=1`}
-                    className="flex w-20 shrink-0 flex-col items-center gap-1.5"
-                  >
-                    <span className="anillo-historia block h-16 w-16 rounded-full p-[3px]">
-                      <span className="flex h-full w-full items-center justify-center rounded-full border-2 border-background bg-card">
-                        <Flame className="h-6 w-6 text-primary" />
-                      </span>
-                    </span>
-                    <span className="w-full truncate text-center text-xs text-muted-foreground">
-                      {juntada.nombre}
-                    </span>
-                  </Link>
+                    juntadaId={juntada.id}
+                    nombre={juntada.nombre}
+                    cantidad={juntada._count.historias}
+                    voy={juntada.asistencias.length > 0}
+                  />
                 ))}
               </div>
             </section>
@@ -190,7 +188,11 @@ export default async function InicioPage() {
                 />
                 <RsvpBotones juntadaId={juntadaDestacada.id} estadoActual={miEstado} />
                 {faltaEncargado && (
-                  <EncargadoCuentas juntadaId={juntadaDestacada.id} encargado={null} />
+                  <EncargadoCuentas
+                    juntadaId={juntadaDestacada.id}
+                    encargado={null}
+                    puedeHacerseCargo={miEstado === "voy" || usuario.esAdmin}
+                  />
                 )}
               </div>
             ) : (

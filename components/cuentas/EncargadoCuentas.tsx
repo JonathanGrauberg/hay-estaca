@@ -5,17 +5,25 @@ import type { EncargadoCuentas as Encargado } from "@/lib/cuentas/encargado";
 interface EncargadoCuentasProps {
   juntadaId: string;
   encargado: Encargado | null;
+  // Solo los que van se pueden hacer cargo.
+  puedeHacerseCargo: boolean;
 }
 
 // Quién maneja "la casa de la moneda" en esta juntada, o el aviso de que falta.
-export function EncargadoCuentas({ juntadaId, encargado }: EncargadoCuentasProps) {
+export function EncargadoCuentas({
+  juntadaId,
+  encargado,
+  puedeHacerseCargo,
+}: EncargadoCuentasProps) {
   if (encargado) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Coins className="h-4 w-4 shrink-0 text-primary" />
         <span>
           Casa de la moneda:{" "}
-          <span className="font-semibold text-foreground">{encargado.nombre}</span>
+          <span className="font-semibold text-foreground">
+            {encargado.nombre}
+          </span>
         </span>
       </p>
     );
@@ -29,17 +37,20 @@ export function EncargadoCuentas({ juntadaId, encargado }: EncargadoCuentasProps
           Che, falta encargado de la casa de la moneda
         </p>
         <p className="text-xs text-muted-foreground">
-          Ningún encargado confirmó que va. Alguien tiene que dividir y cerrar las cuentas.
+          Ningún encargado confirmó que va. Alguien tiene que dividir y cerrar
+          las cuentas.
         </p>
       </div>
-      <form action={hacermeCargo.bind(null, juntadaId)}>
-        <button
-          type="submit"
-          className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-        >
-          Me hago cargo
-        </button>
-      </form>
+      {puedeHacerseCargo && (
+        <form action={hacermeCargo.bind(null, juntadaId)}>
+          <button
+            type="submit"
+            className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+          >
+            Me hago cargo
+          </button>
+        </form>
+      )}
     </div>
   );
 }

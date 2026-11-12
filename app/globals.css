@@ -264,9 +264,40 @@
     --giro: 360deg;
   }
 }
+/*
+ * Círculo de historias de una juntada: un solo círculo con el borde partido en tantos
+ * segmentos como historias (--partes, con tope), girando. El contenido va encima en
+ * otro elemento para que no gire.
+ */
+.anillo-segmentos {
+  --partes: 1;
+  --hueco: 0deg;
+  background: conic-gradient(
+    var(--primary),
+    var(--brasa),
+    var(--primary) 50%,
+    var(--brasa) 75%,
+    var(--primary)
+  );
+  -webkit-mask: repeating-conic-gradient(
+    #000 0 calc(360deg / var(--partes) - var(--hueco)),
+    transparent 0 calc(360deg / var(--partes))
+  );
+  mask: repeating-conic-gradient(
+    #000 0 calc(360deg / var(--partes) - var(--hueco)),
+    transparent 0 calc(360deg / var(--partes))
+  );
+  animation: girar-anillo 5s linear infinite;
+}
+@keyframes girar-anillo {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .anillo-historia,
-  .borde-historia {
+  .borde-historia,
+  .anillo-segmentos {
     animation: none;
   }
 }

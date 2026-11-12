@@ -20,7 +20,9 @@ import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
 // se renderiza siempre en el servidor por request, nunca estática.
 export const dynamic = "force-dynamic";
 
-const usuarioBasico = { select: { id: true, nombre: true, apodo: true, avatarUrl: true } } as const;
+const usuarioBasico = {
+  select: { id: true, nombre: true, apodo: true, avatarUrl: true },
+} as const;
 
 export default async function JuntadaDetallePage({
   params,
@@ -30,39 +32,52 @@ export default async function JuntadaDetallePage({
   const { id } = await params;
 
   const desde = desdeHistoriasVigentes();
-  const [juntada, miembros, checklistItems, encargado, historias] = await Promise.all([
-    prisma.juntada.findUnique({
-      where: { id },
-      include: {
-        asistencias: true,
-        anfitrion: usuarioBasico,
-        invitados: {
-          orderBy: { createdAt: "asc" },
-          include: { traidoPor: usuarioBasico, _count: { select: { gastosPagados: true } } },
+  const [juntada, miembros, checklistItems, encargado, historias] =
+    await Promise.all([
+      prisma.juntada.findUnique({
+        where: { id },
+        include: {
+          asistencias: true,
+          anfitrion: usuarioBasico,
+          invitados: {
+            orderBy: { createdAt: "asc" },
+            include: {
+              traidoPor: usuarioBasico,
+              _count: { select: { gastosPagados: true } },
+            },
+          },
+          gastos: { select: { montoCentavos: true } },
         },
-        gastos: { select: { montoCentavos: true } },
-      },
-    }),
-    prisma.user.findMany({ orderBy: { nombre: "asc" }, ...usuarioBasico }),
-    prisma.checklistItem.findMany({
-      where: { juntadaId: id },
-      orderBy: { createdAt: "asc" },
-      include: { asignadoA: usuarioBasico },
-    }),
-    encargadoDeJuntada(id),
-    prisma.historia.findMany({
-      where: { juntadaId: id, createdAt: { gte: desde } },
-      orderBy: { createdAt: "asc" },
-      include: { autor: { select: { id: true, nombre: true, apodo: true } } },
-    }),
-  ]);
+      }),
+      prisma.user.findMany({ orderBy: { nombre: "asc" }, ...usuarioBasico }),
+      prisma.checklistItem.findMany({
+        where: { juntadaId: id },
+        orderBy: { createdAt: "asc" },
+        include: { asignadoA: usuarioBasico },
+      }),
+      encargadoDeJuntada(id),
+      prisma.historia.findMany({
+        where: { juntadaId: id, createdAt: { gte: desde } },
+        orderBy: { createdAt: "asc" },
+        include: {
+          autor: { select: { id: true, nombre: true, apodo: true } },
+          vistas: {
+            orderBy: { vistaAt: "desc" },
+            select: { user: { select: { nombre: true, apodo: true } } },
+          },
+        },
+      }),
+    ]);
 
   if (!juntada) {
     notFound();
   }
 
   const estadoPorUserId = new Map(
-    juntada.asistencias.map((asistencia) => [asistencia.userId, asistencia.estado]),
+    juntada.asistencias.map((asistencia) => [
+      asistencia.userId,
+      asistencia.estado,
+    ]),
   );
 
   const miembrosConAsistencia = miembros.map((miembro) => ({
@@ -79,11 +94,15 @@ export default async function JuntadaDetallePage({
   const invitados = juntada.invitados.map((invitado) => ({
     id: invitado.id,
     nombre: invitado.nombre,
-    traidoPor: invitado.traidoPor ? invitado.traidoPor.apodo || invitado.traidoPor.nombre : null,
+    traidoPor: invitado.traidoPor
+      ? invitado.traidoPor.apodo || invitado.traidoPor.nombre
+      : null,
     pagoGastos: invitado._count.gastosPagados > 0,
   }));
 
   const voy = estadoPorUserId.get(usuario.id) === "voy";
+  // Los que no van (salvo el admin) solo miran: ver lib/juntadas/permisos.ts.
+  const soloLectura = !voy && !usuario.esAdmin;
   const historiasVista = voy
     ? historias.map((historia) => ({
         id: historia.id,
@@ -92,10 +111,20 @@ export default async function JuntadaDetallePage({
         autor: historia.autor.apodo || historia.autor.nombre,
         esMia: historia.autor.id === usuario.id,
         hace: haceCuanto(historia.createdAt),
+        // Quién la vio solo se le manda al que la subió.
+        vistas:
+          historia.autor.id === usuario.id
+            ? historia.vistas.map(
+                (vista) => vista.user.apodo || vista.user.nombre,
+              )
+            : [],
       }))
     : [];
 
-  const totalGastado = juntada.gastos.reduce((total, gasto) => total + gasto.montoCentavos, 0);
+  const totalGastado = juntada.gastos.reduce(
+    (total, gasto) => total + gasto.montoCentavos,
+    0,
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-5xl lg:px-8 lg:pt-12">
@@ -103,15 +132,24 @@ export default async function JuntadaDetallePage({
         titulo={juntada.nombre}
         volverA="/juntadas"
         accion={
-          <Link
-            href={`/juntadas/${juntada.id}/editar`}
-            aria-label="Editar juntada"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground-2 hover:text-foreground"
-          >
-            <Pencil className="h-4 w-4" />
-          </Link>
+          soloLectura ? undefined : (
+            <Link
+              href={`/juntadas/${juntada.id}/editar`}
+              aria-label="Editar juntada"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground-2 hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+          )
         }
       />
+
+      {soloLectura && (
+        <p className="rounded-lg border border-dashed border-primary/50 px-4 py-2 text-sm text-muted-foreground">
+          Estás mirando: solo los que van pueden tocar la juntada (cuentas, lo
+          que hay que llevar, invitados). Si vas, confirmalo abajo.
+        </p>
+      )}
 
       {juntada.estado === "archivada" && (
         <p className="rounded-lg border border-dashed border-border px-4 py-2 text-sm text-muted-foreground-2">
@@ -119,35 +157,41 @@ export default async function JuntadaDetallePage({
         </p>
       )}
 
-      <div className="flex flex-col gap-1 rounded-lg border-l-4 border-l-primary bg-card px-4 py-3">
-        <p className="text-sm text-foreground">
-          {formatFechaLarga(juntada.fecha)} · {juntada.hora}hs
-        </p>
-        <p className="text-sm text-muted-foreground">{juntada.ubicacion}</p>
-        {juntada.anfitrion && (
-          <p className="text-sm text-muted-foreground">
-            Anfitrión: {juntada.anfitrion.apodo || juntada.anfitrion.nombre}
+      <div className="flex items-center gap-4 rounded-lg border-l-4 border-l-primary bg-card px-4 py-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-sm text-foreground">
+            {formatFechaLarga(juntada.fecha)} · {juntada.hora}hs
           </p>
-        )}
-        {juntada.mensajeFomo && (
-          <p className="mt-1 text-sm text-muted-foreground-2">{juntada.mensajeFomo}</p>
+          <p className="text-sm text-muted-foreground">{juntada.ubicacion}</p>
+          {juntada.anfitrion && (
+            <p className="text-sm text-muted-foreground">
+              Anfitrión: {juntada.anfitrion.apodo || juntada.anfitrion.nombre}
+            </p>
+          )}
+          {juntada.mensajeFomo && (
+            <p className="mt-1 text-sm text-muted-foreground-2">
+              {juntada.mensajeFomo}
+            </p>
+          )}
+        </div>
+
+        {/* Las historias van en la card, a la derecha: no le roban lugar al resto. */}
+        {r2Configurado() && (
+          <HistoriasJuntada
+            juntadaId={juntada.id}
+            historias={historiasVista}
+            voy={voy}
+            juntadaNombre={juntada.nombre}
+            cantidad={historias.length}
+            mensajeFomo={
+              historias.findLast((historia) => historia.fomo)?.fomo ??
+              juntada.mensajeFomo
+            }
+            subida={estadoHistorias(juntada)}
+            abrirAlCargar={(await searchParams).historias === "1"}
+          />
         )}
       </div>
-
-      {r2Configurado() && (
-        <HistoriasJuntada
-          juntadaId={juntada.id}
-          historias={historiasVista}
-          voy={voy}
-          juntadaNombre={juntada.nombre}
-          cantidad={historias.length}
-          mensajeFomo={
-            historias.findLast((historia) => historia.fomo)?.fomo ?? juntada.mensajeFomo
-          }
-          subida={estadoHistorias(juntada)}
-          abrirAlCargar={(await searchParams).historias === "1"}
-        />
-      )}
 
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6">
@@ -157,7 +201,9 @@ export default async function JuntadaDetallePage({
           >
             <Wallet className="h-5 w-5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">Cuentas claras</p>
+              <p className="text-sm font-semibold text-foreground">
+                Cuentas claras
+              </p>
               <p className="text-xs text-muted-foreground-2">
                 {juntada.gastos.length > 0
                   ? `${juntada.gastos.length} gastos · ${formatearPesos(totalGastado)}`
@@ -167,7 +213,11 @@ export default async function JuntadaDetallePage({
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
           </Link>
 
-          <EncargadoCuentas juntadaId={juntada.id} encargado={encargado} />
+          <EncargadoCuentas
+            juntadaId={juntada.id}
+            encargado={encargado}
+            puedeHacerseCargo={!soloLectura}
+          />
 
           <AsistenciaPanel
             juntadaId={juntada.id}
@@ -175,7 +225,11 @@ export default async function JuntadaDetallePage({
             usuarioActualId={usuario.id}
           />
 
-          <InvitadosSection juntadaId={juntada.id} invitados={invitados} />
+          <InvitadosSection
+            juntadaId={juntada.id}
+            invitados={invitados}
+            soloLectura={soloLectura}
+          />
         </div>
 
         <ChecklistSection
@@ -189,6 +243,7 @@ export default async function JuntadaDetallePage({
           }))}
           miembros={miembrosBasicos}
           usuarioActualId={usuario.id}
+          soloLectura={soloLectura}
         />
       </div>
     </main>

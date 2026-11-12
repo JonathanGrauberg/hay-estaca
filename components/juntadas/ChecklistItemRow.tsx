@@ -16,7 +16,12 @@ export interface ChecklistItemConAsignado {
   descripcion: string;
   completado: boolean;
   tipo: TipoChecklistItem;
-  asignadoA: { id: string; nombre: string; apodo: string; avatarUrl: string | null } | null;
+  asignadoA: {
+    id: string;
+    nombre: string;
+    apodo: string;
+    avatarUrl: string | null;
+  } | null;
 }
 
 interface ChecklistItemRowProps {
@@ -24,21 +29,43 @@ interface ChecklistItemRowProps {
   item: ChecklistItemConAsignado;
   miembros: { id: string; nombre: string; apodo: string }[];
   usuarioActualId: string;
+  // Los que no van ven el item tal cual, sin tildar, asignar ni borrar.
+  soloLectura: boolean;
 }
 
-export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }: ChecklistItemRowProps) {
+export function ChecklistItemRow({
+  juntadaId,
+  item,
+  miembros,
+  usuarioActualId,
+  soloLectura,
+}: ChecklistItemRowProps) {
   const esGrupal = item.tipo === "grupal";
-  const esElAsignado = esGrupal && item.asignadoA !== null && item.asignadoA.id === usuarioActualId;
-  const puedeTogglear = esGrupal && esElAsignado;
+  const esElAsignado =
+    esGrupal &&
+    item.asignadoA !== null &&
+    item.asignadoA.id === usuarioActualId;
+  const puedeTogglear = esGrupal && esElAsignado && !soloLectura;
 
   return (
     <li className="flex items-center gap-3 rounded-lg bg-card px-4 py-2.5">
       {esGrupal && (
-        <form action={togglearChecklistItem.bind(null, juntadaId, item.id, !item.completado)}>
+        <form
+          action={togglearChecklistItem.bind(
+            null,
+            juntadaId,
+            item.id,
+            !item.completado,
+          )}
+        >
           <button
             type="submit"
             disabled={!puedeTogglear}
-            aria-label={item.completado ? "Marcar como pendiente" : "Marcar como completado"}
+            aria-label={
+              item.completado
+                ? "Marcar como pendiente"
+                : "Marcar como completado"
+            }
             title={
               item.asignadoA === null
                 ? "Asigná el item antes de poder tildarlo"
@@ -48,10 +75,14 @@ export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }:
             }
             className={cn(
               item.completado ? "text-primary" : "text-muted-foreground-2",
-              !puedeTogglear && "cursor-not-allowed opacity-40"
+              !puedeTogglear && "cursor-not-allowed opacity-40",
             )}
           >
-            {item.completado ? <SquareCheck className="h-5 w-5" /> : <Square className="h-5 w-5" />}
+            {item.completado ? (
+              <SquareCheck className="h-5 w-5" />
+            ) : (
+              <Square className="h-5 w-5" />
+            )}
           </button>
         </form>
       )}
@@ -60,7 +91,7 @@ export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }:
         <p
           className={cn(
             "text-sm text-foreground",
-            item.completado && "text-muted-foreground-2 line-through"
+            item.completado && "text-muted-foreground-2 line-through",
           )}
         >
           {item.descripcion}
@@ -75,9 +106,17 @@ export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }:
                 avatarUrl={item.asignadoA.avatarUrl}
                 className="h-6 w-6 shrink-0 border border-border text-[9px] text-muted-foreground-2"
               />
-              <span className="text-xs text-muted-foreground-2">{item.asignadoA.apodo}</span>
-              {esElAsignado && (
-                <form action={desasignarChecklistItem.bind(null, juntadaId, item.id)}>
+              <span className="text-xs text-muted-foreground-2">
+                {item.asignadoA.apodo}
+              </span>
+              {esElAsignado && !soloLectura && (
+                <form
+                  action={desasignarChecklistItem.bind(
+                    null,
+                    juntadaId,
+                    item.id,
+                  )}
+                >
                   <button
                     type="submit"
                     className="text-xs text-muted-foreground-2 underline hover:text-primary"
@@ -87,19 +126,32 @@ export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }:
                 </form>
               )}
             </div>
+          ) : soloLectura ? (
+            <p className="mt-1 text-xs text-muted-foreground-2">Sin asignar</p>
           ) : (
-            <form action={asignarChecklistItem.bind(null, juntadaId, item.id)} className="mt-1">
+            <form
+              action={asignarChecklistItem.bind(null, juntadaId, item.id)}
+              className="mt-1"
+            >
               <select
                 name="userId"
                 defaultValue=""
                 onChange={(event) => event.currentTarget.form?.requestSubmit()}
                 className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
               >
-                <option value="" disabled className="bg-card text-muted-foreground-2">
+                <option
+                  value=""
+                  disabled
+                  className="bg-card text-muted-foreground-2"
+                >
                   Asignar a…
                 </option>
                 {miembros.map((miembro) => (
-                  <option key={miembro.id} value={miembro.id} className="bg-card text-foreground">
+                  <option
+                    key={miembro.id}
+                    value={miembro.id}
+                    className="bg-card text-foreground"
+                  >
                     {miembro.apodo || miembro.nombre}
                   </option>
                 ))}
@@ -108,22 +160,24 @@ export function ChecklistItemRow({ juntadaId, item, miembros, usuarioActualId }:
           ))}
       </div>
 
-      <form
-        action={borrarChecklistItem.bind(null, juntadaId, item.id)}
-        onSubmit={(event) => {
-          if (!window.confirm(`¿Borrar "${item.descripcion}"?`)) {
-            event.preventDefault();
-          }
-        }}
-      >
-        <button
-          type="submit"
-          aria-label="Borrar item"
-          className="text-muted-foreground-2 hover:text-primary"
+      {!soloLectura && (
+        <form
+          action={borrarChecklistItem.bind(null, juntadaId, item.id)}
+          onSubmit={(event) => {
+            if (!window.confirm(`¿Borrar "${item.descripcion}"?`)) {
+              event.preventDefault();
+            }
+          }}
         >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </form>
+          <button
+            type="submit"
+            aria-label="Borrar item"
+            className="text-muted-foreground-2 hover:text-primary"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </form>
+      )}
     </li>
   );
 }

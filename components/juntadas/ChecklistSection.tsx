@@ -10,16 +10,33 @@ interface ChecklistSectionProps {
   items: ChecklistItemConAsignado[];
   miembros: { id: string; nombre: string; apodo: string }[];
   usuarioActualId: string;
+  // Para los que no van: ven lo que hay que llevar, sin tocar nada.
+  soloLectura: boolean;
 }
 
 // Las dos listas a la vista: lo grupal (alguien se encarga) y lo que cada uno tiene
 // que llevar para sí.
-const SECCIONES: { tipo: TipoChecklistItem; titulo: string; ayuda: string }[] = [
-  { tipo: "grupal", titulo: "LO QUE HAY QUE LLEVAR", ayuda: "Cada cosa la lleva alguien del grupo." },
-  { tipo: "individual", titulo: "CADA UNO LLEVA LO SUYO", ayuda: "Lo que tiene que traer cada uno." },
-];
+const SECCIONES: { tipo: TipoChecklistItem; titulo: string; ayuda: string }[] =
+  [
+    {
+      tipo: "grupal",
+      titulo: "LO QUE HAY QUE LLEVAR",
+      ayuda: "Cada cosa la lleva alguien del grupo.",
+    },
+    {
+      tipo: "individual",
+      titulo: "CADA UNO LLEVA LO SUYO",
+      ayuda: "Lo que tiene que traer cada uno.",
+    },
+  ];
 
-export function ChecklistSection({ juntadaId, items, miembros, usuarioActualId }: ChecklistSectionProps) {
+export function ChecklistSection({
+  juntadaId,
+  items,
+  miembros,
+  usuarioActualId,
+  soloLectura,
+}: ChecklistSectionProps) {
   return (
     <div className="flex flex-col gap-6">
       {SECCIONES.map((seccion) => {
@@ -42,12 +59,21 @@ export function ChecklistSection({ juntadaId, items, miembros, usuarioActualId }
                     item={item}
                     miembros={miembros}
                     usuarioActualId={usuarioActualId}
+                    soloLectura={soloLectura}
                   />
                 ))}
               </ul>
             )}
 
-            <FormAgregarItem juntadaId={juntadaId} tipo={seccion.tipo} />
+            {soloLectura ? (
+              itemsSeccion.length === 0 && (
+                <p className="text-xs text-muted-foreground-2">
+                  Nada por ahora.
+                </p>
+              )
+            ) : (
+              <FormAgregarItem juntadaId={juntadaId} tipo={seccion.tipo} />
+            )}
           </section>
         );
       })}

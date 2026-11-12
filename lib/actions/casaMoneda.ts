@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import { puedeModificarJuntada } from "@/lib/juntadas/permisos";
 import { cargarCuentas } from "@/lib/cuentas/datos";
 import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
 import { parsearPersona, personaId } from "@/lib/cuentas/personas";
@@ -22,6 +23,9 @@ async function soyEncargado(juntadaId: string, userId: string) {
 // Solo cuando falta encargado (ningún encargado fijo confirmó que va).
 export async function hacermeCargo(juntadaId: string, _formData: FormData) {
   const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   if (!(await encargadoDeJuntada(juntadaId))) {
     await prisma.juntada.update({
@@ -40,7 +44,10 @@ async function cambiarEstado(
 ) {
   const usuario = await requireUsuario();
 
-  if (!(await soyEncargado(juntadaId, usuario.id))) {
+  if (
+    !(await soyEncargado(juntadaId, usuario.id)) ||
+    !(await puedeModificarJuntada(juntadaId, usuario))
+  ) {
     return;
   }
 

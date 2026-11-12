@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import { puedeModificarJuntada, SOLO_LOS_QUE_VAN } from "@/lib/juntadas/permisos";
 import { instanteArgentina } from "@/lib/juntadas/horario";
 
 export type GuardarJuntadaState = { error: string } | undefined;
@@ -71,14 +72,20 @@ export async function crearJuntada(
   _prevState: GuardarJuntadaState,
   formData: FormData
 ): Promise<GuardarJuntadaState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
 
   const resultado = await leerJuntada(formData);
   if (resultado.error !== undefined) {
     return { error: resultado.error };
   }
 
-  const juntada = await prisma.juntada.create({ data: resultado.data });
+  // El que la crea queda como que va: si no, no la podría ni editar.
+  const juntada = await prisma.juntada.create({
+    data: {
+      ...resultado.data,
+      asistencias: { create: { userId: usuario.id, estado: "voy", respondidoAt: new Date() } },
+    },
+  });
 
   revalidatePath("/");
   revalidatePath("/juntadas");
@@ -90,7 +97,10 @@ export async function editarJuntada(
   _prevState: GuardarJuntadaState,
   formData: FormData
 ): Promise<GuardarJuntadaState> {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
 
   const resultado = await leerJuntada(formData);
   if (resultado.error !== undefined) {
@@ -109,7 +119,10 @@ export async function editarJuntada(
 // y a futuro gastos y estadísticas siguen ahí). Desarchivar la devuelve: el valor de
 // "proxima" no importa porque próxima/pasada se calcula por la fecha.
 export async function cambiarArchivoJuntada(juntadaId: string, archivar: boolean, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   await prisma.juntada.update({
     where: { id: juntadaId },
@@ -122,7 +135,10 @@ export async function cambiarArchivoJuntada(juntadaId: string, archivar: boolean
 }
 
 export async function borrarJuntada(juntadaId: string, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   // Asistencias, checklist, invitados y gastos se borran en cascada (schema).
   await prisma.juntada.delete({ where: { id: juntadaId } });
@@ -140,6 +156,9 @@ export async function agregarInvitado(
   formData: FormData
 ): Promise<AgregarInvitadoState> {
   const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return { error: SOLO_LOS_QUE_VAN };
+  }
   const nombre = String(formData.get("nombre") ?? "").trim();
 
   if (!nombre) {
@@ -155,7 +174,10 @@ export async function agregarInvitado(
 }
 
 export async function borrarInvitado(juntadaId: string, invitadoId: string, _formData: FormData) {
-  await requireUsuario();
+  const usuario = await requireUsuario();
+  if (!(await puedeModificarJuntada(juntadaId, usuario))) {
+    return;
+  }
 
   // Si pagó algún gasto no se puede sacar (rompería las cuentas); la pantalla ya
   // oculta la X en ese caso.

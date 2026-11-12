@@ -71,6 +71,7 @@ model User {
   fotosPropuestasRecibidas PropuestaFoto[]         @relation("PropuestaFotoPara")
   fotosPropuestasHechas    PropuestaFoto[]         @relation("PropuestaFotoDe")
   historias                Historia[]
+  historiasVistas          VistaHistoria[]
 }
 
 model Juntada {
@@ -311,8 +312,21 @@ model Historia {
   fomo      String?
   createdAt DateTime @default(now())
 
-  juntada Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
-  autor   User    @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  juntada Juntada         @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  autor   User            @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  vistas  VistaHistoria[]
 
   @@index([juntadaId, createdAt])
+}
+
+// Quién vio cada historia (lo ve el que la subió). Se borra con la historia.
+model VistaHistoria {
+  historiaId String
+  userId     String
+  vistaAt    DateTime @default(now())
+
+  historia Historia @relation(fields: [historiaId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([historiaId, userId])
 }

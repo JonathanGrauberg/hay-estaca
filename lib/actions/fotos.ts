@@ -195,3 +195,25 @@ export async function borrarHistoria(historiaId: string) {
 
   revalidatePath(`/juntadas/${historia.juntadaId}`);
 }
+
+// Se llama al abrir cada historia en el visor. Solo cuenta a los que van (los únicos
+// que la pueden ver) y no al que la subió.
+export async function marcarHistoriaVista(historiaId: string) {
+  const usuario = await requireUsuario();
+  const historia = await prisma.historia.findUnique({
+    where: { id: historiaId },
+    select: { juntadaId: true, autorId: true },
+  });
+  if (!historia || historia.autorId === usuario.id) {
+    return;
+  }
+  if (!(await vaALaJuntada(historia.juntadaId, usuario.id))) {
+    return;
+  }
+  await prisma.vistaHistoria.upsert({
+    where: { historiaId_userId: { historiaId, userId: usuario.id } },
+    create: { historiaId, userId: usuario.id },
+    update: {},
+  });
+  // Sin revalidate: el que la subió ve la lista actualizada la próxima vez que entra.
+}

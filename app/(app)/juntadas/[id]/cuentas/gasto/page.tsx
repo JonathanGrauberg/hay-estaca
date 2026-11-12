@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { guardarGasto } from "@/lib/actions/gastos";
 import { cargarCuentas } from "@/lib/cuentas/datos";
+import { puedeModificarJuntada } from "@/lib/juntadas/permisos";
 import { personaId } from "@/lib/cuentas/personas";
 import { FormGasto } from "@/components/cuentas/FormGasto";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
@@ -19,7 +20,7 @@ export default async function NuevoGastoPage({ params }: PageProps<"/juntadas/[i
   }
 
   const { personas, categorias, estado } = await cargarCuentas(juntada.id);
-  if (estado !== "abiertas") {
+  if (estado !== "abiertas" || !(await puedeModificarJuntada(juntada.id, usuario))) {
     redirect(`/juntadas/${juntada.id}/cuentas`);
   }
 

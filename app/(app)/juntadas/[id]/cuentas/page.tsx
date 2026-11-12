@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Check, CircleCheck, Pencil, Plus, Receipt, Undo2 } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  CircleCheck,
+  Pencil,
+  Plus,
+  Receipt,
+  Undo2,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import {
@@ -12,6 +20,7 @@ import {
   volverACargar,
 } from "@/lib/actions/casaMoneda";
 import { cargarCuentas } from "@/lib/cuentas/datos";
+import { puedeModificarJuntada } from "@/lib/juntadas/permisos";
 import { formatearPesos } from "@/lib/cuentas/dinero";
 import { personaId } from "@/lib/cuentas/personas";
 import { cn } from "@/lib/utils";
@@ -25,11 +34,14 @@ import { FormConfirmar } from "@/components/ui/FormConfirmar";
 
 export const dynamic = "force-dynamic";
 
-const tituloSeccion = "text-xs font-semibold tracking-[0.15em] text-muted-foreground-2";
+const tituloSeccion =
+  "text-xs font-semibold tracking-[0.15em] text-muted-foreground-2";
 const botonSecundario =
   "flex w-full items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:border-primary hover:text-foreground";
 
-export default async function CuentasJuntadaPage({ params }: PageProps<"/juntadas/[id]/cuentas">) {
+export default async function CuentasJuntadaPage({
+  params,
+}: PageProps<"/juntadas/[id]/cuentas">) {
   const usuario = await requireUsuario();
   const { id } = await params;
 
@@ -41,11 +53,18 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
     notFound();
   }
 
-  const cuentas = await cargarCuentas(juntada.id);
+  const [cuentas, puedeModificar] = await Promise.all([
+    cargarCuentas(juntada.id),
+    puedeModificarJuntada(juntada.id, usuario),
+  ]);
+  // Los que no van miran las cuentas pero no cargan, dividen ni bonifican.
+  const editables = cuentas.estado === "abiertas" && puedeModificar;
   const yo = personaId({ userId: usuario.id, invitadoId: null });
   const persona = new Map(cuentas.personas.map((p) => [p.id, p]));
   const nombre = (id: string) => persona.get(id)?.nombre ?? "?";
-  const nombreCategoria = new Map(cuentas.categorias.map((c) => [c.id, c.nombre]));
+  const nombreCategoria = new Map(
+    cuentas.categorias.map((c) => [c.id, c.nombre]),
+  );
 
   const abiertas = cuentas.estado === "abiertas";
   const soyEncargado = cuentas.encargado?.id === usuario.id;
@@ -57,7 +76,9 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
 
   const tablaSaldos = conMovimiento.length > 0 && (
     <section className="flex flex-col gap-2">
-      <h2 className={tituloSeccion}>{abiertas ? "CÓMO VA QUEDANDO" : "CÓMO QUEDÓ CADA UNO"}</h2>
+      <h2 className={tituloSeccion}>
+        {abiertas ? "CÓMO VA QUEDANDO" : "CÓMO QUEDÓ CADA UNO"}
+      </h2>
       <div className="overflow-hidden rounded-lg bg-card">
         <table className="w-full text-sm">
           <thead>
@@ -75,7 +96,9 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
                 <tr key={p.id} className="border-t border-border">
                   <td className="max-w-24 truncate px-4 py-2 text-foreground">
                     {p.nombre}
-                    {p.id === yo && <span className="text-muted-foreground-2"> (vos)</span>}
+                    {p.id === yo && (
+                      <span className="text-muted-foreground-2"> (vos)</span>
+                    )}
                   </td>
                   <td className="px-2 py-2 text-right text-muted-foreground">
                     {formatearPesos(cuentas.pagado[p.id] ?? 0)}
@@ -104,11 +127,15 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
   const listaGastos = (
     <ul className="flex flex-col gap-2">
       {cuentas.gastos.map((gasto) => {
-        const categoria = gasto.categoriaId ? nombreCategoria.get(gasto.categoriaId) : null;
+        const categoria = gasto.categoriaId
+          ? nombreCategoria.get(gasto.categoriaId)
+          : null;
         const contenido = (
           <>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{gasto.concepto}</p>
+              <p className="truncate text-sm font-medium text-foreground">
+                {gasto.concepto}
+              </p>
               <p className="text-xs text-muted-foreground-2">
                 Pagó {nombre(gasto.pagadoPor)} ·{" "}
                 {categoria
@@ -123,7 +150,7 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
         );
         return (
           <li key={gasto.id}>
-            {abiertas ? (
+            {editables ? (
               <Link
                 href={`/juntadas/${juntada.id}/cuentas/gasto/${gasto.id}`}
                 className="flex items-start gap-3 rounded-lg bg-card px-4 py-2.5 transition-colors hover:bg-accent"
@@ -146,14 +173,18 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
     <CategoriasSection
       juntadaId={juntada.id}
       categorias={cuentas.categorias}
-      personas={cuentas.personas.map(({ id, nombre, esInvitado, vaPorDefecto }) => ({
-        id,
-        nombre,
-        esInvitado,
-        va: vaPorDefecto,
-      }))}
-      conGastos={cuentas.gastos.flatMap((g) => (g.categoriaId ? [g.categoriaId] : []))}
-      editable={abiertas}
+      personas={cuentas.personas.map(
+        ({ id, nombre, esInvitado, vaPorDefecto }) => ({
+          id,
+          nombre,
+          esInvitado,
+          va: vaPorDefecto,
+        }),
+      )}
+      conGastos={cuentas.gastos.flatMap((g) =>
+        g.categoriaId ? [g.categoriaId] : [],
+      )}
+      editable={editables}
     />
   );
 
@@ -169,7 +200,11 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
           <div>
             <p className={tituloSeccion}>
               TOTAL GASTADO ·{" "}
-              {abiertas ? "CARGANDO" : cuentas.estado === "divididas" ? "DIVIDIDO" : "CERRADO"}
+              {abiertas
+                ? "CARGANDO"
+                : cuentas.estado === "divididas"
+                  ? "DIVIDIDO"
+                  : "CERRADO"}
             </p>
             <p className="font-heading text-4xl leading-none tracking-wide text-foreground">
               {formatearPesos(cuentas.totalCentavos)}
@@ -188,7 +223,11 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
             </p>
           )}
         </div>
-        <EncargadoCuentas juntadaId={juntada.id} encargado={cuentas.encargado} />
+        <EncargadoCuentas
+          juntadaId={juntada.id}
+          encargado={cuentas.encargado}
+          puedeHacerseCargo={puedeModificar}
+        />
       </div>
 
       {abiertas ? (
@@ -202,16 +241,23 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
             <section className="flex flex-col gap-2">
               <h2 className={tituloSeccion}>2 · QUIÉN PUSO QUÉ</h2>
               <p className="text-xs text-muted-foreground-2">
-                Cada uno carga lo que pagó para compartir. Lo que ya había o lo que alguien
-                trajo para él no se carga.
+                Cada uno carga lo que pagó para compartir. Lo que ya había o lo
+                que alguien trajo para él no se carga.
               </p>
-              <Link
-                href={`/juntadas/${juntada.id}/cuentas/gasto`}
-                className="flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              >
-                <Plus className="h-4 w-4" />
-                Cargar lo que puse
-              </Link>
+              {puedeModificar ? (
+                <Link
+                  href={`/juntadas/${juntada.id}/cuentas/gasto`}
+                  className="flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                  Cargar lo que puse
+                </Link>
+              ) : (
+                <p className="rounded-lg border border-dashed border-primary/50 px-4 py-2 text-xs text-muted-foreground">
+                  Estás mirando: solo los que van a la juntada cargan y dividen
+                  gastos.
+                </p>
+              )}
               {cuentas.gastos.length === 0 ? (
                 <EmptyState
                   icon={Receipt}
@@ -247,15 +293,19 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
 
             {tablaSaldos}
 
-            <BonificadosSection
-              juntadaId={juntada.id}
-              personas={cuentas.personas.map(({ id, nombre, esInvitado }) => ({
-                id,
-                nombre,
-                esInvitado,
-              }))}
-              bonificados={cuentas.bonificados}
-            />
+            {puedeModificar && (
+              <BonificadosSection
+                juntadaId={juntada.id}
+                personas={cuentas.personas.map(
+                  ({ id, nombre, esInvitado }) => ({
+                    id,
+                    nombre,
+                    esInvitado,
+                  }),
+                )}
+                bonificados={cuentas.bonificados}
+              />
+            )}
           </div>
         </div>
       ) : (
@@ -277,7 +327,8 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
                   {cuentas.transferencias.map((transferencia) => {
                     const destino = persona.get(transferencia.a);
                     const meToca = transferencia.de === yo;
-                    const puedoTildar = meToca || transferencia.a === yo || soyEncargado;
+                    const puedoTildar =
+                      meToca || transferencia.a === yo || soyEncargado;
                     return (
                       <li
                         key={`${transferencia.de}-${transferencia.a}`}
@@ -304,11 +355,16 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
                               <span className="truncate text-xs text-muted-foreground-2">
                                 {destino.aliasCvu}
                               </span>
-                              <BotonCopiar texto={destino.aliasCvu} label="Copiar alias" />
+                              <BotonCopiar
+                                texto={destino.aliasCvu}
+                                label="Copiar alias"
+                              />
                             </div>
                           ) : (
                             <span className="text-xs text-muted-foreground-2">
-                              {destino?.esInvitado ? "" : `${destino?.nombre} no cargó su alias.`}
+                              {destino?.esInvitado
+                                ? ""
+                                : `${destino?.nombre} no cargó su alias.`}
                             </span>
                           )}
                           {puedoTildar && (
@@ -358,7 +414,13 @@ export default async function CuentasJuntadaPage({ params }: PageProps<"/juntada
                           {formatearPesos(pago.centavos)}
                         </span>
                         {puedoDeshacer && (
-                          <form action={deshacerPago.bind(null, juntada.id, pago.id)}>
+                          <form
+                            action={deshacerPago.bind(
+                              null,
+                              juntada.id,
+                              pago.id,
+                            )}
+                          >
                             <button
                               type="submit"
                               aria-label="Deshacer pago"
