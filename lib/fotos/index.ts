@@ -7,6 +7,16 @@ export function desdeHistoriasVigentes() {
   return new Date(Date.now() - HORAS_HISTORIA * 60 * 60 * 1000);
 }
 
+// Las historias que el usuario todavía no vio (ni el FOMO): las que el inicio le ofrece.
+// Como en Instagram, cada historia aparece una sola vez; después se ven desde la juntada.
+export function historiasSinVer(userId: string) {
+  return {
+    createdAt: { gte: desdeHistoriasVigentes() },
+    autorId: { not: userId },
+    vistas: { none: { userId } },
+  };
+}
+
 // Las historias de una juntada solo las ven (y suben) los que confirmaron que van.
 export async function vaALaJuntada(juntadaId: string, userId: string) {
   const asistencia = await prisma.asistencia.findUnique({

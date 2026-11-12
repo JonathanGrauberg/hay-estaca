@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { Eye, Flame, Plus, Trash2, X } from "lucide-react";
 import {
   borrarHistoria,
+  marcarFomoVisto,
   marcarHistoriaVista,
   publicarHistoria,
 } from "@/lib/actions/fotos";
@@ -32,6 +33,8 @@ export interface HistoriaVista {
   hace: string;
   // Quiénes la vieron (solo se manda en las propias).
   vistas: string[];
+  // Ya la vio (o es suya).
+  vista: boolean;
 }
 
 interface HistoriasJuntadaProps {
@@ -67,9 +70,14 @@ export function HistoriasJuntada({
   subida,
   abrirAlCargar,
 }: HistoriasJuntadaProps) {
-  const [abierta, setAbierta] = useState<number | null>(
-    abrirAlCargar && voy && historias.length > 0 ? 0 : null,
-  );
+  // Desde el inicio arranca en la primera que no vio, como en Instagram.
+  const [abierta, setAbierta] = useState<number | null>(() => {
+    if (!abrirAlCargar || !voy || historias.length === 0) {
+      return null;
+    }
+    const primeraSinVer = historias.findIndex((historia) => !historia.vista);
+    return primeraSinVer === -1 ? 0 : primeraSinVer;
+  });
   const [fomoAbierto, setFomoAbierto] = useState(
     abrirAlCargar && !voy && cantidad > 0,
   );
@@ -208,6 +216,11 @@ function FomoHistoria({
     undefined,
   );
   const segmentos = Math.min(cantidad, MAX_SEGMENTOS);
+
+  // Ya vio el FOMO: el inicio no se lo vuelve a ofrecer (hasta que haya historias nuevas).
+  useEffect(() => {
+    void marcarFomoVisto(juntadaId);
+  }, [juntadaId]);
 
   return (
     <MarcoHistoria>

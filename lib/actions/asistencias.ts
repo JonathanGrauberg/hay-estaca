@@ -28,6 +28,13 @@ export async function actualizarAsistencia(
     update: { estado, respondidoAt: new Date() },
   });
 
+  // Si había visto solo el FOMO, ahora que va le tocan las historias de verdad.
+  if (estado === "voy") {
+    await prisma.vistaHistoria.deleteMany({
+      where: { userId, soloFomo: true, historia: { juntadaId } },
+    });
+  }
+
   // Las cuentas siguen a la asistencia mientras se están cargando: el que confirma
   // queda tildado en todo lo que se divide, y el que se baja sale.
   const juntada = await prisma.juntada.findUnique({

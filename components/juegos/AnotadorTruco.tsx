@@ -53,7 +53,8 @@ function parsear(crudo: string | null): PartidaTruco {
   try {
     const p = JSON.parse(crudo) as Partial<PartidaTruco>;
     const limite: Limite = p.limite === 15 ? 15 : 30;
-    const ok = (n: unknown) => (typeof n === "number" && n >= 0 ? Math.min(n, limite) : 0);
+    const ok = (n: unknown) =>
+      typeof n === "number" && n >= 0 ? Math.min(n, limite) : 0;
     return { nos: ok(p.nos), ellos: ok(p.ellos), limite };
   } catch {
     return PARTIDA_NUEVA;
@@ -62,27 +63,42 @@ function parsear(crudo: string | null): PartidaTruco {
 
 const NOMBRES: Record<Equipo, string> = { nos: "NOS", ellos: "ELLOS" };
 
-function Columna({
-  equipo,
-  partida,
+// Una columna del anotador: nombre, puntos, fósforos y (si anota) los botones. La usan
+// el anotador suelto y la partida en vivo de la juntada.
+export function ColumnaTruco({
+  nombre,
+  puntos,
+  limite,
+  jugadores,
   onCambiar,
 }: {
-  equipo: Equipo;
-  partida: PartidaTruco;
-  onCambiar: (delta: number) => void;
+  nombre: string;
+  puntos: number;
+  limite: Limite;
+  jugadores?: string[];
+  // Sin esto es solo para mirar: no hay botones.
+  onCambiar?: (delta: number) => void;
 }) {
-  const puntos = partida[equipo];
-  const cuadrados = rayasPorCuadrado(puntos, partida.limite);
-  const conDivisoria = partida.limite === 30;
+  const cuadrados = rayasPorCuadrado(puntos, limite);
+  const conDivisoria = limite === 30;
   const mitadCuadrados = MITAD / 5;
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-3">
-      <p className="font-heading text-3xl tracking-wide text-primary">{NOMBRES[equipo]}</p>
-      <p className="font-heading text-6xl leading-none text-foreground">{puntos}</p>
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
+      <p className="max-w-full truncate font-heading text-3xl tracking-wide text-primary">
+        {nombre}
+      </p>
+      {jugadores && jugadores.length > 0 && (
+        <p className="-mt-2 line-clamp-2 text-center text-xs text-muted-foreground-2">
+          {jugadores.join(" · ")}
+        </p>
+      )}
+      <p className="font-heading text-6xl leading-none text-foreground">
+        {puntos}
+      </p>
       <p className="h-4 text-[11px] font-semibold tracking-[0.15em] text-primary">
         {conDivisoria
-          ? enLasBuenas(puntos, partida.limite)
+          ? enLasBuenas(puntos, limite)
             ? "EN LAS BUENAS"
             : "EN LAS MALAS"
           : ""}
@@ -102,29 +118,37 @@ function Columna({
         ))}
       </div>
 
-      <div className="mt-auto flex w-full gap-2 pt-2">
-        <button
-          type="button"
-          onClick={() => onCambiar(-1)}
-          aria-label={`Restar un punto a ${NOMBRES[equipo]}`}
-          className="flex h-14 flex-1 items-center justify-center rounded-lg border-2 border-primary text-primary active:scale-95"
-        >
-          <Minus className="h-6 w-6" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onCambiar(1)}
-          aria-label={`Sumar un punto a ${NOMBRES[equipo]}`}
-          className="flex h-14 flex-[2] items-center justify-center rounded-lg bg-primary text-primary-foreground active:scale-95"
-        >
-          <Plus className="h-7 w-7" />
-        </button>
-      </div>
+      {onCambiar && (
+        <div className="mt-auto flex w-full gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => onCambiar(-1)}
+            aria-label={`Restar un punto a ${nombre}`}
+            className="flex h-14 flex-1 items-center justify-center rounded-lg border-2 border-primary text-primary active:scale-95"
+          >
+            <Minus className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onCambiar(1)}
+            aria-label={`Sumar un punto a ${nombre}`}
+            className="flex h-14 flex-[2] items-center justify-center rounded-lg bg-primary text-primary-foreground active:scale-95"
+          >
+            <Plus className="h-7 w-7" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function Reglas({ partida, onCerrar }: { partida: PartidaTruco; onCerrar: () => void }) {
+export function ReglasTruco({
+  partida,
+  onCerrar,
+}: {
+  partida: PartidaTruco;
+  onCerrar: () => void;
+}) {
   const falta = valorFaltaEnvido(partida);
   const fila = "flex justify-between gap-4 border-b border-primary/20 py-1.5";
 
@@ -138,7 +162,9 @@ function Reglas({ partida, onCerrar }: { partida: PartidaTruco; onCerrar: () => 
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-heading text-3xl tracking-wide text-primary">REGLAS</h2>
+          <h2 className="font-heading text-3xl tracking-wide text-primary">
+            REGLAS
+          </h2>
           <button
             type="button"
             onClick={onCerrar}
@@ -177,8 +203,8 @@ function Reglas({ partida, onCerrar }: { partida: PartidaTruco; onCerrar: () => 
           </li>
         </ul>
         <p className="mt-1 text-xs text-foreground/80">
-          Falta envido: si el que va ganando está en las malas se juega el partido; si no, vale lo
-          que le falta para ganar.
+          Falta envido: si el que va ganando está en las malas se juega el
+          partido; si no, vale lo que le falta para ganar.
         </p>
 
         <h3 className="mt-4 text-xs font-semibold tracking-[0.15em] text-primary">
@@ -263,7 +289,9 @@ export function AnotadorTruco() {
               onClick={() => cambiarLimite(limite)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-bold",
-                partida.limite === limite ? "bg-primary text-primary-foreground" : "text-primary",
+                partida.limite === limite
+                  ? "bg-primary text-primary-foreground"
+                  : "text-primary",
               )}
             >
               A {limite}
@@ -291,9 +319,19 @@ export function AnotadorTruco() {
       </div>
 
       <div className="relative flex flex-1 gap-3 rounded-lg border-2 border-primary/40 bg-card p-3">
-        <Columna equipo="nos" partida={partida} onCambiar={(d) => cambiar("nos", d)} />
+        <ColumnaTruco
+          nombre={NOMBRES.nos}
+          puntos={partida.nos}
+          limite={partida.limite}
+          onCambiar={(d) => cambiar("nos", d)}
+        />
         <div className="w-0.5 self-stretch rounded-full bg-primary/40" />
-        <Columna equipo="ellos" partida={partida} onCambiar={(d) => cambiar("ellos", d)} />
+        <ColumnaTruco
+          nombre={NOMBRES.ellos}
+          puntos={partida.ellos}
+          limite={partida.limite}
+          onCambiar={(d) => cambiar("ellos", d)}
+        />
 
         {gano && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-lg bg-background/90 backdrop-blur-sm">
@@ -314,7 +352,9 @@ export function AnotadorTruco() {
               </button>
               <button
                 type="button"
-                onClick={() => guardar({ ...PARTIDA_NUEVA, limite: partida.limite })}
+                onClick={() =>
+                  guardar({ ...PARTIDA_NUEVA, limite: partida.limite })
+                }
                 className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
               >
                 Otra partida
@@ -324,7 +364,12 @@ export function AnotadorTruco() {
         )}
       </div>
 
-      {mostrarReglas && <Reglas partida={partida} onCerrar={() => setMostrarReglas(false)} />}
+      {mostrarReglas && (
+        <ReglasTruco
+          partida={partida}
+          onCerrar={() => setMostrarReglas(false)}
+        />
+      )}
     </div>
   );
 }

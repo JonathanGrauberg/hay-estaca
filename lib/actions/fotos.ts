@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
-import { keyDeRuta, rutaFoto, vaALaJuntada } from "@/lib/fotos";
+import { historiasSinVer, keyDeRuta, rutaFoto, vaALaJuntada } from "@/lib/fotos";
 import { estadoHistorias } from "@/lib/juntadas/horario";
 import { TAMANO_MAXIMO, borrarObjeto, r2Configurado, tamanoObjeto, urlSubida } from "@/lib/r2";
 
@@ -213,7 +213,25 @@ export async function marcarHistoriaVista(historiaId: string) {
   await prisma.vistaHistoria.upsert({
     where: { historiaId_userId: { historiaId, userId: usuario.id } },
     create: { historiaId, userId: usuario.id },
-    update: {},
+    update: { soloFomo: false },
   });
-  // Sin revalidate: el que la subió ve la lista actualizada la próxima vez que entra.
+  // Sin revalidate: el que la subió ve la lista actualizada la próxima vez que entra, y
+  // el inicio deja de ofrecerla en la próxima carga.
+}
+
+// El que no va vio el FOMO: las historias de ahora ya no se le ofrecen en el inicio (las
+// nuevas sí). No aparece en "quién la vio".
+export async function marcarFomoVisto(juntadaId: string) {
+  const usuario = await requireUsuario();
+  const historias = await prisma.historia.findMany({
+    where: { juntadaId, ...historiasSinVer(usuario.id) },
+    select: { id: true },
+  });
+  if (historias.length === 0) {
+    return;
+  }
+  await prisma.vistaHistoria.createMany({
+    data: historias.map((h) => ({ historiaId: h.id, userId: usuario.id, soloFomo: true })),
+    skipDuplicates: true,
+  });
 }

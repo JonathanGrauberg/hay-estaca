@@ -15,7 +15,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { hoyComoFechaDb } from "@/lib/utils";
-import { desdeHistoriasVigentes } from "@/lib/fotos";
+import { desdeHistoriasVigentes, historiasSinVer } from "@/lib/fotos";
 import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
 import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AvatarRow } from "@/components/juntadas/AvatarRow";
@@ -37,6 +37,8 @@ export default async function InicioPage() {
   // siendo "próxima" hasta que termina el día. Las archivadas no se muestran.
   const hoy = hoyComoFechaDb();
   const desde = desdeHistoriasVigentes();
+  // Como en Instagram, el inicio ofrece cada historia una sola vez.
+  const sinVer = historiasSinVer(usuario.id);
 
   const [miembros, juntadasProximas, checklistPendientes, fotosPropuestas, conHistorias] =
     await Promise.all([
@@ -50,7 +52,7 @@ export default async function InicioPage() {
       include: {
         asistencias: true,
         _count: {
-          select: { invitados: true, historias: { where: { createdAt: { gte: desde } } } },
+          select: { invitados: true, historias: { where: sinVer } },
         },
       },
     }),
@@ -68,9 +70,9 @@ export default async function InicioPage() {
       },
     }),
     prisma.propuestaFoto.count({ where: { paraUserId: usuario.id } }),
-    // Juntadas con historias de las últimas 24 hs: la fila de círculos de arriba.
+    // Juntadas con historias que no vio: la fila de círculos de arriba.
     prisma.juntada.findMany({
-      where: { estado: { not: "archivada" }, historias: { some: { createdAt: { gte: desde } } } },
+      where: { estado: { not: "archivada" }, historias: { some: sinVer } },
       orderBy: [{ fecha: "desc" }, { hora: "desc" }],
       select: {
         id: true,

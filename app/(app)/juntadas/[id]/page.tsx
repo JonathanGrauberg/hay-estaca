@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight, Pencil, Wallet } from "lucide-react";
+import { ChevronRight, Pencil, Spade, Wallet } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { formatFechaLarga } from "@/lib/utils";
@@ -47,6 +47,7 @@ export default async function JuntadaDetallePage({
             },
           },
           gastos: { select: { montoCentavos: true } },
+          partidasTruco: { select: { terminadaAt: true } },
         },
       }),
       prisma.user.findMany({ orderBy: { nombre: "asc" }, ...usuarioBasico }),
@@ -62,8 +63,12 @@ export default async function JuntadaDetallePage({
         include: {
           autor: { select: { id: true, nombre: true, apodo: true } },
           vistas: {
+            where: { soloFomo: false },
             orderBy: { vistaAt: "desc" },
-            select: { user: { select: { nombre: true, apodo: true } } },
+            select: {
+              userId: true,
+              user: { select: { nombre: true, apodo: true } },
+            },
           },
         },
       }),
@@ -111,6 +116,9 @@ export default async function JuntadaDetallePage({
         autor: historia.autor.apodo || historia.autor.nombre,
         esMia: historia.autor.id === usuario.id,
         hace: haceCuanto(historia.createdAt),
+        vista:
+          historia.autor.id === usuario.id ||
+          historia.vistas.some((vista) => vista.userId === usuario.id),
         // Quién la vio solo se le manda al que la subió.
         vistas:
           historia.autor.id === usuario.id
@@ -120,6 +128,10 @@ export default async function JuntadaDetallePage({
             : [],
       }))
     : [];
+
+  const partidasEnJuego = juntada.partidasTruco.filter(
+    (partida) => !partida.terminadaAt,
+  ).length;
 
   const totalGastado = juntada.gastos.reduce(
     (total, gasto) => total + gasto.montoCentavos,
@@ -208,6 +220,24 @@ export default async function JuntadaDetallePage({
                 {juntada.gastos.length > 0
                   ? `${juntada.gastos.length} gastos · ${formatearPesos(totalGastado)}`
                   : "Cargá quién compró qué"}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />
+          </Link>
+
+          <Link
+            href={`/juntadas/${juntada.id}/truco`}
+            className="flex items-center gap-3 rounded-lg bg-card px-4 py-3 transition-colors hover:bg-accent"
+          >
+            <Spade className="h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">Truco</p>
+              <p className="text-xs text-muted-foreground-2">
+                {partidasEnJuego > 0
+                  ? `${partidasEnJuego} ${partidasEnJuego === 1 ? "partida" : "partidas"} en juego · mirala en vivo`
+                  : juntada.partidasTruco.length > 0
+                    ? `${juntada.partidasTruco.length} ${juntada.partidasTruco.length === 1 ? "partida jugada" : "partidas jugadas"}`
+                    : "Armá los equipos y elegí quién anota"}
               </p>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground-2" />

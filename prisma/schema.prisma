@@ -72,6 +72,8 @@ model User {
   fotosPropuestasHechas    PropuestaFoto[]         @relation("PropuestaFotoDe")
   historias                Historia[]
   historiasVistas          VistaHistoria[]
+  trucoAnotador            PartidaTruco[]          @relation("TrucoAnotador")
+  trucoJugador             JugadorTruco[]
 }
 
 model Juntada {
@@ -105,6 +107,7 @@ model Juntada {
   checklistItems   ChecklistItem[]
   gastos           Gasto[]
   bonificados      Bonificado[]
+  partidasTruco    PartidaTruco[]
 
   @@index([estado])
   @@index([fecha])
@@ -127,6 +130,7 @@ model Invitado {
   bonificaciones      Bonificado[]
   categoriasParticipa CategoriaParticipante[]
   pagosHechos         Pago[]                  @relation("PagoDeInvitado")
+  trucoJugador        JugadorTruco[]
   pagosRecibidos      Pago[]                  @relation("PagoAInvitado")
 
   @@index([juntadaId])
@@ -324,9 +328,53 @@ model VistaHistoria {
   historiaId String
   userId     String
   vistaAt    DateTime @default(now())
+  // Solo vio el FOMO (no iba): no cuenta en "quién la vio", pero ya no se le vuelve a
+  // ofrecer en el inicio. Si después confirma que va, se borra y la ve de verdad.
+  soloFomo   Boolean  @default(false)
 
   historia Historia @relation(fields: [historiaId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([historiaId, userId])
+}
+
+// Una partida de truco de la juntada. Anota uno solo (el anotador) para que no se pisen
+// los puntos; los demás la siguen en vivo.
+model PartidaTruco {
+  id          String    @id @default(cuid())
+  juntadaId   String
+  // 15 o 30.
+  limite      Int       @default(30)
+  nombreNos   String
+  nombreEllos String
+  puntosNos   Int       @default(0)
+  puntosEllos Int       @default(0)
+  anotadorId  String?
+  // Se completa cuando un equipo llega al límite (y se borra si se corrige).
+  terminadaAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  juntada   Juntada        @relation(fields: [juntadaId], references: [id], onDelete: Cascade)
+  anotador  User?          @relation("TrucoAnotador", fields: [anotadorId], references: [id], onDelete: SetNull)
+  jugadores JugadorTruco[]
+
+  @@index([juntadaId, createdAt])
+}
+
+// Quién juega en cada equipo: un miembro o un invitado de la juntada.
+model JugadorTruco {
+  id         String  @id @default(cuid())
+  partidaId  String
+  // "nos" o "ellos".
+  equipo     String
+  userId     String?
+  invitadoId String?
+
+  partida  PartidaTruco @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  user     User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitado Invitado?    @relation(fields: [invitadoId], references: [id], onDelete: Cascade)
+
+  @@unique([partidaId, userId])
+  @@unique([partidaId, invitadoId])
 }
