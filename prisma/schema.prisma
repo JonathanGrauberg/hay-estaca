@@ -78,6 +78,10 @@ model Juntada {
   nombre             String
   fecha              DateTime      @db.Date
   hora               String
+  // Cuándo termina (opcional). Sin esto, se da por terminada 24 hs después de empezar.
+  // Hasta ahí se pueden subir historias (lib/juntadas/horario.ts).
+  fechaFin           DateTime?     @db.Date
+  horaFin            String?
   ubicacion          String
   mensajeFomo        String?
   // Próxima/pasada se calcula por la fecha; el estado solo importa para "archivada".
@@ -302,6 +306,9 @@ model Historia {
   // Clave del objeto en R2 ("historias/<juntadaId>/<id>.webp").
   key       String
   texto     String?
+  // Lo que ven los que no van en vez de la foto (el FOMO). Si ninguna historia lo
+  // tiene, se usa el mensajeFomo de la juntada.
+  fomo      String?
   createdAt DateTime @default(now())
 
   juntada Juntada @relation(fields: [juntadaId], references: [id], onDelete: Cascade)

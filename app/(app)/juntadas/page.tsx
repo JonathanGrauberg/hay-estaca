@@ -3,6 +3,7 @@ import { CalendarPlus, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { hoyComoFechaDb } from "@/lib/utils";
+import { desdeHistoriasVigentes } from "@/lib/fotos";
 import { JuntadaCard } from "@/components/juntadas/JuntadaCard";
 import { EmptyState } from "@/components/juntadas/EmptyState";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function JuntadasPage() {
   await requireUsuario();
   const hoy = hoyComoFechaDb();
+  const desde = desdeHistoriasVigentes();
 
   const juntadas = await prisma.juntada.findMany({
     orderBy: [{ fecha: "asc" }, { hora: "asc" }],
@@ -23,6 +25,7 @@ export default async function JuntadasPage() {
       ubicacion: true,
       mensajeFomo: true,
       estado: true,
+      _count: { select: { historias: { where: { createdAt: { gte: desde } } } } },
     },
   });
 
@@ -79,6 +82,7 @@ export default async function JuntadasPage() {
                     hora={juntada.hora}
                     ubicacion={juntada.ubicacion}
                     mensajeFomo={juntada.mensajeFomo}
+                    hayHistoria={juntada._count.historias > 0}
                   />
                 ))}
               </div>

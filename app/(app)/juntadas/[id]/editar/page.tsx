@@ -40,6 +40,8 @@ export default async function EditarJuntadaPage({ params }: PageProps<"/juntadas
           // @db.Date llega como medianoche UTC: el día guardado es la parte UTC.
           fecha: juntada.fecha.toISOString().slice(0, 10),
           hora: juntada.hora,
+          fechaFin: juntada.fechaFin?.toISOString().slice(0, 10) ?? "",
+          horaFin: juntada.horaFin ?? "",
           ubicacion: juntada.ubicacion,
           mensajeFomo: juntada.mensajeFomo ?? "",
           anfitrionId: juntada.anfitrionId ?? "",

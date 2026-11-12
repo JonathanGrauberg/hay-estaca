@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CalendarPlus,
   Dices,
+  Flame,
   Plus,
   Trophy,
   User,
@@ -15,6 +16,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { hoyComoFechaDb } from "@/lib/utils";
+import { desdeHistoriasVigentes } from "@/lib/fotos";
 import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
 import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AvatarRow } from "@/components/juntadas/AvatarRow";
@@ -34,8 +36,10 @@ export default async function InicioPage() {
   // Próximas se separan por la fecha real (hoy en Argentina): la juntada de hoy sigue
   // siendo "próxima" hasta que termina el día. Las archivadas no se muestran.
   const hoy = hoyComoFechaDb();
+  const desde = desdeHistoriasVigentes();
 
-  const [miembros, juntadasProximas, checklistPendientes, fotosPropuestas] = await Promise.all([
+  const [miembros, juntadasProximas, checklistPendientes, fotosPropuestas, conHistorias] =
+    await Promise.all([
     prisma.user.findMany({
       orderBy: { nombre: "asc" },
       select: { id: true, nombre: true, apodo: true, avatarUrl: true },
@@ -43,7 +47,12 @@ export default async function InicioPage() {
     prisma.juntada.findMany({
       where: { estado: { not: "archivada" }, fecha: { gte: hoy } },
       orderBy: [{ fecha: "asc" }, { hora: "asc" }],
-      include: { asistencias: true, _count: { select: { invitados: true } } },
+      include: {
+        asistencias: true,
+        _count: {
+          select: { invitados: true, historias: { where: { createdAt: { gte: desde } } } },
+        },
+      },
     }),
     prisma.checklistItem.findMany({
       where: {
@@ -59,6 +68,12 @@ export default async function InicioPage() {
       },
     }),
     prisma.propuestaFoto.count({ where: { paraUserId: usuario.id } }),
+    // Juntadas con historias de las últimas 24 hs: la fila de círculos de arriba.
+    prisma.juntada.findMany({
+      where: { estado: { not: "archivada" }, historias: { some: { createdAt: { gte: desde } } } },
+      orderBy: [{ fecha: "desc" }, { hora: "desc" }],
+      select: { id: true, nombre: true },
+    }),
   ]);
 
   const [juntadaDestacada, ...otrasProximas] = juntadasProximas;
@@ -116,6 +131,32 @@ export default async function InicioPage() {
             </Link>
           )}
 
+          {conHistorias.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground-2">
+                HISTORIAS
+              </h2>
+              <div className="flex gap-4 overflow-x-auto px-1 py-1">
+                {conHistorias.map((juntada) => (
+                  <Link
+                    key={juntada.id}
+                    href={`/juntadas/${juntada.id}?historias=1`}
+                    className="flex w-20 shrink-0 flex-col items-center gap-1.5"
+                  >
+                    <span className="anillo-historia block h-16 w-16 rounded-full p-[3px]">
+                      <span className="flex h-full w-full items-center justify-center rounded-full border-2 border-background bg-card">
+                        <Flame className="h-6 w-6 text-primary" />
+                      </span>
+                    </span>
+                    <span className="w-full truncate text-center text-xs text-muted-foreground">
+                      {juntada.nombre}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
           <AvatarRow miembros={miembrosConEstado} puedeSumar={usuario.esAdmin} />
 
           <section className="flex flex-col gap-2">
@@ -145,6 +186,7 @@ export default async function InicioPage() {
                   confirmados={confirmadosIds.size}
                   totalMiembros={miembros.length}
                   invitados={juntadaDestacada._count.invitados}
+                  hayHistoria={juntadaDestacada._count.historias > 0}
                 />
                 <RsvpBotones juntadaId={juntadaDestacada.id} estadoActual={miEstado} />
                 {faltaEncargado && (

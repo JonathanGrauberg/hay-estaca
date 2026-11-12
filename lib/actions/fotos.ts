@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
 import { keyDeRuta, rutaFoto, vaALaJuntada } from "@/lib/fotos";
+import { estadoHistorias } from "@/lib/juntadas/horario";
 import { TAMANO_MAXIMO, borrarObjeto, r2Configurado, tamanoObjeto, urlSubida } from "@/lib/r2";
 
 // Subida en dos pasos: pedirSubida da una clave y un link firmado de PUT, el celular
@@ -17,6 +18,28 @@ export type Destino = { tipo: "avatar"; userId: string } | { tipo: "historia"; j
 export type PedirSubidaResultado = { error: string } | { key: string; url: string };
 
 const SIN_R2 = "Las fotos todavía no están configuradas (falta conectar Cloudflare R2).";
+
+// Las historias se suben solo los que van y desde el día de la juntada hasta que termina.
+async function puedeSubirHistoria(juntadaId: string, userId: string) {
+  const juntada = await prisma.juntada.findUnique({
+    where: { id: juntadaId },
+    select: { fecha: true, hora: true, fechaFin: true, horaFin: true },
+  });
+  if (!juntada) {
+    return "Esa juntada ya no existe.";
+  }
+  const estado = estadoHistorias(juntada);
+  if (estado === "todavia") {
+    return "Las historias se abren el día de la juntada.";
+  }
+  if (estado === "terminada") {
+    return "La juntada terminó: ya no se suben historias.";
+  }
+  if (!(await vaALaJuntada(juntadaId, userId))) {
+    return "Solo los que van a la juntada pueden subir historias.";
+  }
+  return null;
+}
 
 function prefijo(destino: Destino) {
   return destino.tipo === "avatar"
@@ -35,8 +58,11 @@ export async function pedirSubida(destino: Destino): Promise<PedirSubidaResultad
     if (!existe) {
       return { error: "Ese integrante ya no existe." };
     }
-  } else if (!(await vaALaJuntada(destino.juntadaId, usuario.id))) {
-    return { error: "Solo los que van a la juntada pueden subir historias." };
+  } else {
+    const error = await puedeSubirHistoria(destino.juntadaId, usuario.id);
+    if (error) {
+      return { error };
+    }
   }
 
   const key = `${prefijo(destino)}${randomUUID()}.webp`;
@@ -128,19 +154,27 @@ export async function responderPropuesta(propuestaId: string, aceptar: boolean, 
 export async function publicarHistoria(
   juntadaId: string,
   key: string,
-  texto: string
+  texto: string,
+  fomo: string
 ): Promise<FotoState> {
   const usuario = await requireUsuario();
 
-  if (!(await vaALaJuntada(juntadaId, usuario.id))) {
-    return { error: "Solo los que van a la juntada pueden subir historias." };
+  const error = await puedeSubirHistoria(juntadaId, usuario.id);
+  if (error) {
+    return { error };
   }
   if (!(await fotoValida(key, { tipo: "historia", juntadaId }))) {
     return { error: "No se pudo subir la foto. Probá de nuevo." };
   }
 
   await prisma.historia.create({
-    data: { juntadaId, autorId: usuario.id, key, texto: texto.trim().slice(0, 140) || null },
+    data: {
+      juntadaId,
+      autorId: usuario.id,
+      key,
+      texto: texto.trim().slice(0, 140) || null,
+      fomo: fomo.trim().slice(0, 140) || null,
+    },
   });
 
   revalidatePath(`/juntadas/${juntadaId}`);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
+import { instanteArgentina } from "@/lib/juntadas/horario";
 
 export type GuardarJuntadaState = { error: string } | undefined;
 
@@ -14,6 +15,8 @@ async function leerJuntada(formData: FormData) {
   const ubicacion = String(formData.get("ubicacion") ?? "").trim();
   const mensajeFomo = String(formData.get("mensajeFomo") ?? "").trim();
   const anfitrionId = String(formData.get("anfitrionId") ?? "").trim();
+  const fechaFinTexto = String(formData.get("fechaFin") ?? "").trim();
+  const horaFin = String(formData.get("horaFin") ?? "").trim();
 
   if (!nombre || !fecha || !hora || !ubicacion) {
     return { error: "Completá nombre, fecha, hora y ubicación." } as const;
@@ -22,6 +25,28 @@ async function leerJuntada(formData: FormData) {
   const fechaParseada = new Date(fecha);
   if (Number.isNaN(fechaParseada.getTime())) {
     return { error: "La fecha no es válida." } as const;
+  }
+
+  // Fin opcional. Con solo la hora: el mismo día, o el siguiente si es más temprano
+  // que el comienzo (un asado de las 21 que termina a las 4).
+  let fechaFin: Date | null = null;
+  if (horaFin) {
+    if (fechaFinTexto) {
+      fechaFin = new Date(fechaFinTexto);
+    } else {
+      fechaFin = new Date(fechaParseada);
+      if (horaFin <= hora) {
+        fechaFin.setUTCDate(fechaFin.getUTCDate() + 1);
+      }
+    }
+    if (
+      Number.isNaN(fechaFin.getTime()) ||
+      instanteArgentina(fechaFin, horaFin) <= instanteArgentina(fechaParseada, hora)
+    ) {
+      return { error: "La juntada tiene que terminar después de empezar." } as const;
+    }
+  } else if (fechaFinTexto) {
+    return { error: "Poné también a qué hora termina." } as const;
   }
 
   if (anfitrionId && !(await prisma.user.findUnique({ where: { id: anfitrionId } }))) {
@@ -33,6 +58,8 @@ async function leerJuntada(formData: FormData) {
       nombre,
       fecha: fechaParseada,
       hora,
+      fechaFin,
+      horaFin: horaFin || null,
       ubicacion,
       mensajeFomo: mensajeFomo || null,
       anfitrionId: anfitrionId || null,

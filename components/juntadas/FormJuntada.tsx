@@ -12,6 +12,9 @@ export interface ValoresJuntada {
   /** YYYY-MM-DD, como lo espera el input type="date". */
   fecha: string;
   hora: string;
+  /** Opcionales: cuándo termina (hasta ahí se suben historias). */
+  fechaFin: string;
+  horaFin: string;
   ubicacion: string;
   mensajeFomo: string;
   anfitrionId: string;
@@ -72,6 +75,35 @@ export function FormJuntada({ accion, miembros, valores, labelBoton }: FormJunta
             className={inputClass}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <p className={labelClass}>
+          Termina <span className="text-muted-foreground-2">(opcional)</span>
+        </p>
+        <div className="flex gap-3">
+          <input
+            id="fechaFin"
+            name="fechaFin"
+            type="date"
+            aria-label="Fecha en que termina"
+            defaultValue={valores?.fechaFin}
+            className={inputClass}
+          />
+          <input
+            id="horaFin"
+            name="horaFin"
+            type="time"
+            aria-label="Hora en que termina"
+            defaultValue={valores?.horaFin}
+            className={inputClass}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground-2">
+          Hasta ahí se pueden subir historias. Con solo la hora alcanza (si es más temprano
+          que el comienzo, se toma el día siguiente). Si no ponés nada, 24 hs después de
+          empezar.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

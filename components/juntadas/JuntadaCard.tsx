@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Flame } from "lucide-react";
 import { cn, formatFechaCorta } from "@/lib/utils";
 
 export type JuntadaCardVariant = "destacada" | "proxima" | "pasada";
@@ -15,6 +16,8 @@ interface JuntadaCardProps {
   confirmados?: number;
   totalMiembros?: number;
   invitados?: number;
+  /** Tiene historias de las últimas 24 hs: borde que gira y cartel, y abre las historias. */
+  hayHistoria?: boolean;
 }
 
 export function JuntadaCard({
@@ -28,6 +31,7 @@ export function JuntadaCard({
   confirmados,
   totalMiembros,
   invitados = 0,
+  hayHistoria = false,
 }: JuntadaCardProps) {
   const destacada = variant === "destacada";
   const pasada = variant === "pasada";
@@ -42,11 +46,16 @@ export function JuntadaCard({
 
   return (
     <Link
-      href={`/juntadas/${id}`}
+      href={hayHistoria ? `/juntadas/${id}?historias=1` : `/juntadas/${id}`}
       className={cn(
-        "flex items-start justify-between gap-3 rounded-lg border-l-4 bg-card px-4 py-3 transition-colors hover:bg-accent",
-        destacada ? "border-l-primary" : "border-l-border",
-        pasada && "opacity-50"
+        "flex items-start justify-between gap-3 rounded-lg px-4 py-3 transition-colors",
+        hayHistoria
+          ? "borde-historia"
+          : cn(
+              "border-l-4 bg-card hover:bg-accent",
+              destacada ? "border-l-primary" : "border-l-border",
+              pasada && "opacity-50"
+            )
       )}
     >
       <div className="min-w-0">
@@ -57,7 +66,14 @@ export function JuntadaCard({
         )}
       </div>
 
-      {destacada && confirmados !== undefined && totalMiembros !== undefined && (
+      {hayHistoria && (
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
+          <Flame className="h-3.5 w-3.5" />
+          ¡Hay historia!
+        </span>
+      )}
+
+      {!hayHistoria && destacada && confirmados !== undefined && totalMiembros !== undefined && (
         <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
           {confirmados} de {totalMiembros} ✓{invitados > 0 && ` +${invitados}`}
         </span>

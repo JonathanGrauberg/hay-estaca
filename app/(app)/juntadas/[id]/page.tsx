@@ -8,6 +8,7 @@ import { formatearPesos } from "@/lib/cuentas/dinero";
 import { encargadoDeJuntada } from "@/lib/cuentas/encargado";
 import { desdeHistoriasVigentes, haceCuanto, rutaFoto } from "@/lib/fotos";
 import { r2Configurado } from "@/lib/r2";
+import { estadoHistorias } from "@/lib/juntadas/horario";
 import { HistoriasJuntada } from "@/components/fotos/HistoriasJuntada";
 import { EncargadoCuentas } from "@/components/cuentas/EncargadoCuentas";
 import { AsistenciaPanel } from "@/components/juntadas/AsistenciaPanel";
@@ -21,7 +22,10 @@ export const dynamic = "force-dynamic";
 
 const usuarioBasico = { select: { id: true, nombre: true, apodo: true, avatarUrl: true } } as const;
 
-export default async function JuntadaDetallePage({ params }: PageProps<"/juntadas/[id]">) {
+export default async function JuntadaDetallePage({
+  params,
+  searchParams,
+}: PageProps<"/juntadas/[id]">) {
   const usuario = await requireUsuario();
   const { id } = await params;
 
@@ -135,7 +139,13 @@ export default async function JuntadaDetallePage({ params }: PageProps<"/juntada
           juntadaId={juntada.id}
           historias={historiasVista}
           voy={voy}
-          cantidadOcultas={historias.length}
+          juntadaNombre={juntada.nombre}
+          cantidad={historias.length}
+          mensajeFomo={
+            historias.findLast((historia) => historia.fomo)?.fomo ?? juntada.mensajeFomo
+          }
+          subida={estadoHistorias(juntada)}
+          abrirAlCargar={(await searchParams).historias === "1"}
         />
       )}
 

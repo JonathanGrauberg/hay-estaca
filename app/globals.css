@@ -222,3 +222,51 @@
     width: 100%;
   }
 }
+
+/*
+ * Hay historia: un borde rojo/brasa que gira alrededor del círculo o de la card.
+ * El ángulo se anima con @property (fondo con conic-gradient recortado al borde).
+ */
+@property --giro {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.anillo-historia {
+  background: conic-gradient(
+    from var(--giro),
+    var(--primary),
+    var(--brasa),
+    var(--primary) 40%,
+    transparent 55%,
+    var(--primary)
+  );
+  animation: girar-borde 2.2s linear infinite;
+}
+.borde-historia {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    conic-gradient(
+        from var(--giro),
+        var(--primary),
+        var(--brasa),
+        var(--primary) 35%,
+        var(--border) 50%,
+        var(--border) 85%,
+        var(--primary)
+      )
+      border-box;
+  animation: girar-borde 2.5s linear infinite;
+}
+@keyframes girar-borde {
+  to {
+    --giro: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anillo-historia,
+  .borde-historia {
+    animation: none;
+  }
+}
