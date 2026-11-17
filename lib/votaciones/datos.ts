@@ -33,6 +33,8 @@ export interface VotacionesVista {
     cerrada: boolean;
     // false mientras los admin la preparan: solo ellos la ven.
     publicada: boolean;
+    // Los admin están ensayando la revelación (cuenta como cerrada).
+    prueba: boolean;
     diasQueFaltan: number;
   };
   categorias: CategoriaVista[];
@@ -56,10 +58,15 @@ export function hoyArgentina() {
 // @db.Date llega como medianoche UTC: el día guardado es la parte UTC.
 export const diaGuardado = (fecha: Date) => fecha.toISOString().slice(0, 10);
 
-// Llegó el día de la despedida: la votación está cerrada.
+// Llegó el día de la despedida.
 export function estaAbierta(apertura: Date) {
   return hoyArgentina() >= diaGuardado(apertura);
 }
+
+// Ya no se vota y los sobres se pueden abrir: llegó la despedida o los admin están
+// ensayando.
+export const votacionCerrada = (t: { apertura: Date; prueba: boolean }) =>
+  t.prueba || estaAbierta(t.apertura);
 
 const nombreDe = (u: { nombre: string; apodo: string | null }) => u.apodo || u.nombre;
 
@@ -104,7 +111,7 @@ export async function leerVotaciones(
     adminVotaciones: esAdmin || adminVotaciones,
   }));
 
-  const cerrada = estaAbierta(temporada.apertura);
+  const cerrada = votacionCerrada(temporada);
   const apertura = diaGuardado(temporada.apertura);
   const diasQueFaltan = Math.max(
     0,
@@ -153,6 +160,7 @@ export async function leerVotaciones(
       apertura,
       cerrada,
       publicada: temporada.publicada,
+      prueba: temporada.prueba,
       diasQueFaltan,
     },
     categorias,

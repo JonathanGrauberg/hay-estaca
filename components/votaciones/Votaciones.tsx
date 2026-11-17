@@ -26,6 +26,7 @@ import {
   proponerCategoria,
   renombrarCategoria,
   revelarCategoria,
+  revelarTodas,
   votar,
   type ResultadoVotacion,
 } from "@/lib/actions/votaciones";
@@ -185,13 +186,32 @@ export function Votaciones({ datos, yoId, esAdmin, esAdminGrupo }: VotacionesPro
         <div className="flex flex-col items-center gap-1 rounded-lg border-l-4 border-l-primary bg-card px-4 py-4 text-center">
           <Trophy className="h-8 w-8 text-primary" />
           <p className="font-heading text-3xl tracking-wide text-foreground">
-            ¡LOS PREMIOS {temporada.anio}!
+            {temporada.prueba ? "ENSAYO DE LOS PREMIOS" : `¡LOS PREMIOS ${temporada.anio}!`}
           </p>
           <p className="text-sm text-muted-foreground">
             La votación cerró. Cada sobre lo abre el que presenta la categoría
             {categorias.length > 0 && ` · ${reveladas} de ${categorias.length} abiertos`}.
           </p>
         </div>
+        {esAdmin && faltaRevelar && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `¿Revelar las ${categorias.length - reveladas} categorías que faltan? Se abren todos los sobres a la vez (se ven cuántos votos sacó cada uno, nunca quién votó a quién).`,
+                )
+              ) {
+                correr(() => revelarTodas(temporada.id));
+              }
+            }}
+            className="flex items-center justify-center gap-2 rounded-full border-2 border-primary px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
+          >
+            <MailOpen className="h-4 w-4" />
+            Revelar votaciones ({categorias.length - reveladas} sin abrir)
+          </button>
+        )}
         {error && <p className="text-sm text-primary">{error}</p>}
         {categorias.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground-2">

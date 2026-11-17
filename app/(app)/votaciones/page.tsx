@@ -16,7 +16,9 @@ export default async function VotacionesPage() {
   const anioActual = Number(hoyArgentina().slice(0, 4));
   // Pasada la despedida del año, los admin ya pueden arrancar la del año que viene.
   const puedeArrancar =
-    esAdmin && (!datos || (datos.temporada.cerrada && datos.temporada.anio <= anioActual));
+    esAdmin &&
+    (!datos ||
+      (datos.temporada.cerrada && !datos.temporada.prueba && datos.temporada.anio <= anioActual));
 
   // Mientras el admin la prepara (o no hay temporada), el resto ve solo el cartel.
   if (!esAdmin && (!datos || !datos.temporada.publicada)) {
@@ -41,7 +43,12 @@ export default async function VotacionesPage() {
       )}
 
       {datos && esAdmin && (
-        <PublicarTemporada temporadaId={datos.temporada.id} publicada={datos.temporada.publicada} />
+        <PublicarTemporada
+          temporadaId={datos.temporada.id}
+          publicada={datos.temporada.publicada}
+          prueba={datos.temporada.prueba}
+          cerradaPorFecha={datos.temporada.cerrada && !datos.temporada.prueba}
+        />
       )}
 
       {datos ? (

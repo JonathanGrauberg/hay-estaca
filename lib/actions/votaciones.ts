@@ -3,13 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
-import { esAdminVotaciones, estaAbierta, hoyArgentina } from "@/lib/votaciones/datos";
+import {
+  esAdminVotaciones,
+  estaAbierta,
+  hoyArgentina,
+  votacionCerrada,
+} from "@/lib/votaciones/datos";
 
 export type ResultadoVotacion = { error: string } | { ok: true };
 
 const SOLO_ADMIN = "Solo los admin de las votaciones pueden hacer esto.";
 const YA_CERRADA = "La votación ya cerró.";
 const PREPARANDO = "Los admin de las votaciones están preparando la encuesta.";
+const EN_PRUEBA = "Están probando la revelación: terminá la prueba primero.";
 
 function revalidar() {
   revalidatePath("/votaciones");
@@ -62,14 +68,16 @@ export async function crearTemporada(formData: FormData): Promise<ResultadoVotac
 
 async function temporadaParaAdmin(
   temporadaId: string,
-): Promise<{ error: string } | { temporada: { apertura: Date; publicada: boolean } }> {
+): Promise<
+  { error: string } | { temporada: { apertura: Date; publicada: boolean; prueba: boolean } }
+> {
   const usuario = await requireUsuario();
   if (!esAdminVotaciones(usuario)) {
     return { error: SOLO_ADMIN };
   }
   const temporada = await prisma.temporadaVotacion.findUnique({
     where: { id: temporadaId },
-    select: { apertura: true, publicada: true },
+    select: { apertura: true, publicada: true, prueba: true },
   });
   if (!temporada) {
     return { error: "La temporada ya no existe." };
@@ -110,6 +118,9 @@ export async function cerrarVotacionYa(temporadaId: string): Promise<ResultadoVo
   if ("error" in chequeo) {
     return chequeo;
   }
+  if (chequeo.temporada.prueba) {
+    return { error: EN_PRUEBA };
+  }
   if (estaAbierta(chequeo.temporada.apertura)) {
     return { error: YA_CERRADA };
   }
@@ -131,12 +142,53 @@ export async function publicarTemporada(
   if ("error" in chequeo) {
     return chequeo;
   }
+  if (chequeo.temporada.prueba) {
+    return { error: EN_PRUEBA };
+  }
   await prisma.temporadaVotacion.update({
     where: { id: temporadaId },
     data: { publicada: publicar },
   });
   revalidar();
   revalidatePath("/");
+  return { ok: true };
+}
+
+// Ensayo de la despedida, solo con la temporada oculta: la votación se cierra (sin
+// tocar la fecha) y los admin abren los sobres como esa noche.
+export async function empezarPrueba(temporadaId: string): Promise<ResultadoVotacion> {
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
+  }
+  const { temporada } = chequeo;
+  if (temporada.publicada) {
+    return { error: "Ya la ven todos: la prueba es solo con la votación oculta." };
+  }
+  if (estaAbierta(temporada.apertura)) {
+    return { error: YA_CERRADA };
+  }
+  await prisma.temporadaVotacion.update({ where: { id: temporadaId }, data: { prueba: true } });
+  revalidar();
+  return { ok: true };
+}
+
+// Fin del ensayo: se borran los votos de la prueba y se vuelven a tapar los sobres.
+// Quedan las categorías, las propuestas y quién revela cada una.
+export async function terminarPrueba(temporadaId: string): Promise<ResultadoVotacion> {
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
+  }
+  if (!chequeo.temporada.prueba) {
+    return { ok: true };
+  }
+  await prisma.$transaction([
+    prisma.votoVotacion.deleteMany({ where: { categoria: { temporadaId } } }),
+    prisma.categoriaVotacion.updateMany({ where: { temporadaId }, data: { reveladaAt: null } }),
+    prisma.temporadaVotacion.update({ where: { id: temporadaId }, data: { prueba: false } }),
+  ]);
+  revalidar();
   return { ok: true };
 }
 
@@ -159,13 +211,16 @@ export async function borrarTemporada(temporadaId: string): Promise<ResultadoVot
 async function temporadaVotable(temporadaId: string, esAdmin: boolean) {
   const temporada = await prisma.temporadaVotacion.findUnique({
     where: { id: temporadaId },
-    select: { apertura: true, publicada: true },
+    select: { apertura: true, publicada: true, prueba: true },
   });
   if (!temporada) {
     return "La temporada ya no existe.";
   }
   if (!temporada.publicada && !esAdmin) {
     return PREPARANDO;
+  }
+  if (temporada.prueba) {
+    return EN_PRUEBA;
   }
   return estaAbierta(temporada.apertura) ? YA_CERRADA : null;
 }
@@ -247,7 +302,11 @@ export async function borrarCategoria(categoriaId: string): Promise<ResultadoVot
   const usuario = await requireUsuario();
   const categoria = await prisma.categoriaVotacion.findUnique({
     where: { id: categoriaId },
-    select: { aprobada: true, propuestaPorId: true, temporada: { select: { apertura: true } } },
+    select: {
+      aprobada: true,
+      propuestaPorId: true,
+      temporada: { select: { apertura: true, prueba: true } },
+    },
   });
   if (!categoria) {
     return { ok: true };
@@ -258,8 +317,8 @@ export async function borrarCategoria(categoriaId: string): Promise<ResultadoVot
   if (!puede) {
     return { error: SOLO_ADMIN };
   }
-  if (estaAbierta(categoria.temporada.apertura)) {
-    return { error: YA_CERRADA };
+  if (votacionCerrada(categoria.temporada)) {
+    return { error: categoria.temporada.prueba ? EN_PRUEBA : YA_CERRADA };
   }
   await prisma.categoriaVotacion.delete({ where: { id: categoriaId } });
   revalidar();
@@ -343,7 +402,7 @@ export async function revelarCategoria(categoriaId: string): Promise<ResultadoVo
       aprobada: true,
       reveladorId: true,
       reveladaAt: true,
-      temporada: { select: { apertura: true } },
+      temporada: { select: { apertura: true, prueba: true } },
     },
   });
   if (!categoria || !categoria.aprobada) {
@@ -355,11 +414,29 @@ export async function revelarCategoria(categoriaId: string): Promise<ResultadoVo
   if (categoria.reveladorId !== usuario.id) {
     return { error: "Este sobre lo abre el que presenta la categoría." };
   }
-  if (!estaAbierta(categoria.temporada.apertura)) {
+  if (!votacionCerrada(categoria.temporada)) {
     return { error: "Todavía se está votando: el sobre se abre en la despedida." };
   }
   await prisma.categoriaVotacion.update({
     where: { id: categoriaId },
+    data: { reveladaAt: new Date() },
+  });
+  revalidar();
+  return { ok: true };
+}
+
+// Al final de la noche: un admin abre todos los sobres que falten de una. Se ven
+// cuántos votos sacó cada uno, nunca quién votó a quién.
+export async function revelarTodas(temporadaId: string): Promise<ResultadoVotacion> {
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
+  }
+  if (!votacionCerrada(chequeo.temporada)) {
+    return { error: "Todavía se está votando: se revela en la despedida." };
+  }
+  await prisma.categoriaVotacion.updateMany({
+    where: { temporadaId, aprobada: true, reveladaAt: null },
     data: { reveladaAt: new Date() },
   });
   revalidar();
