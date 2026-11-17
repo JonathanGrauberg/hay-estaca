@@ -58,6 +58,8 @@ model User {
   encargadoCuentas Boolean   @default(false)
   // Admin del grupo: suma y saca integrantes, edita sus datos y les genera PIN nuevo.
   esAdmin          Boolean   @default(false)
+  // Ayuda al admin con las votaciones (categorías, quién revela). Tampoco ve los votos.
+  adminVotaciones  Boolean   @default(false)
 
   asistencias              Asistencia[]
   checklistItemsAsignados  ChecklistItem[]         @relation("ChecklistAsignado")
@@ -82,6 +84,7 @@ model User {
   categoriasPropuestas     CategoriaVotacion[]
   votosEmitidos            VotoVotacion[]          @relation("VotoDe")
   votosRecibidos           VotoVotacion[]          @relation("VotoPara")
+  categoriasQueRevela      CategoriaVotacion[]     @relation("RevelaCategoria")
 }
 
 model Juntada {
@@ -443,8 +446,8 @@ model VotoEncuesta {
 model TemporadaVotacion {
   id        String   @id @default(cuid())
   anio      Int      @unique
-  // Día de la despedida: desde ese día (hora de Argentina) se abren los resultados y
-  // ya no se vota.
+  // Día de la despedida: desde ese día (hora de Argentina) ya no se vota y los sobres
+  // se pueden revelar.
   apertura  DateTime @db.Date
   // Mientras el admin la prepara, solo la ve él; los demás ven "la están preparando".
   publicada Boolean  @default(false)
@@ -460,10 +463,15 @@ model CategoriaVotacion {
   nombre         String
   propuestaPorId String?
   aprobada       Boolean  @default(false)
+  // El que presenta esta categoría en la despedida: solo él abre el sobre. Hasta que
+  // lo abre, nadie (ni los admins) ve los votos.
+  reveladorId    String?
+  reveladaAt     DateTime?
   createdAt      DateTime @default(now())
 
   temporada    TemporadaVotacion @relation(fields: [temporadaId], references: [id], onDelete: Cascade)
   propuestaPor User?             @relation(fields: [propuestaPorId], references: [id], onDelete: SetNull)
+  revelador    User?             @relation("RevelaCategoria", fields: [reveladorId], references: [id], onDelete: SetNull)
   votos        VotoVotacion[]
 
   @@index([temporadaId])

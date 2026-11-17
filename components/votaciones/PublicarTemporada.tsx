@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { publicarTemporada } from "@/lib/actions/votaciones";
+import { borrarTemporada, publicarTemporada } from "@/lib/actions/votaciones";
 import { cn } from "@/lib/utils";
 
 // Solo el admin: mientras no se publica, los demás ven "la están preparando".
@@ -15,6 +15,20 @@ export function PublicarTemporada({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  function borrar() {
+    if (
+      !window.confirm(
+        "¿Borrar la temporada entera? Se van las categorías, propuestas y votos. No se puede deshacer.",
+      )
+    )
+      return;
+    setError(null);
+    startTransition(async () => {
+      const resultado = await borrarTemporada(temporadaId);
+      if ("error" in resultado) setError(resultado.error);
+    });
+  }
 
   function cambiar() {
     const mensaje = publicada
@@ -42,13 +56,23 @@ export function PublicarTemporada({
       )}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-foreground">
-          {publicada ? "Publicada: la ven todos" : "Solo la ves vos"}
+          {publicada ? "Publicada: la ven todos" : "Solo la ven los admin"}
         </p>
         <p className="text-xs text-muted-foreground-2">
           {publicada
             ? "Pueden proponer y votar."
             : 'Los demás ven "Los admin de las votaciones están preparando la encuesta".'}
         </p>
+        {!publicada && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={borrar}
+            className="text-xs text-muted-foreground-2 underline-offset-2 hover:text-primary hover:underline"
+          >
+            Borrar temporada (para empezar de cero)
+          </button>
+        )}
         {error && <p className="text-xs text-primary">{error}</p>}
       </div>
       <button

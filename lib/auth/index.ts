@@ -15,7 +15,14 @@ export const getUsuarioActual = cache(async () => {
   }
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, nombre: true, apodo: true, avatarUrl: true, esAdmin: true },
+    select: {
+      id: true,
+      nombre: true,
+      apodo: true,
+      avatarUrl: true,
+      esAdmin: true,
+      adminVotaciones: true,
+    },
   });
 });
 

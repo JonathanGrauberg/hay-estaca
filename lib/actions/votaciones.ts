@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUsuario } from "@/lib/auth";
-import { estaAbierta, hoyArgentina } from "@/lib/votaciones/datos";
+import { esAdminVotaciones, estaAbierta, hoyArgentina } from "@/lib/votaciones/datos";
 
 export type ResultadoVotacion = { error: string } | { ok: true };
 
-const SOLO_ADMIN = "Solo el admin del grupo puede hacer esto.";
-const YA_ABIERTA = "Los resultados ya se abrieron: la votación terminó.";
+const SOLO_ADMIN = "Solo los admin de las votaciones pueden hacer esto.";
+const YA_CERRADA = "La votación ya cerró.";
+const PREPARANDO = "Los admin de las votaciones están preparando la encuesta.";
 
 function revalidar() {
   revalidatePath("/votaciones");
@@ -19,18 +20,36 @@ function leerFecha(valor: FormDataEntryValue | null) {
   return /^\d{4}-\d{2}-\d{2}$/.test(texto) ? texto : null;
 }
 
-// El admin arranca la temporada del año con el día de la despedida (la apertura).
+function limpiarNombre(texto: string) {
+  const limpio = texto.trim().replace(/\s+/g, " ").slice(0, 60);
+  return limpio ? limpio[0].toUpperCase() + limpio.slice(1) : null;
+}
+
+async function nombreRepetido(temporadaId: string, nombre: string, salvoId?: string) {
+  const repetida = await prisma.categoriaVotacion.findFirst({
+    where: {
+      temporadaId,
+      nombre: { equals: nombre, mode: "insensitive" },
+      ...(salvoId ? { id: { not: salvoId } } : {}),
+    },
+    select: { id: true },
+  });
+  return repetida ? `Ya está "${nombre}".` : null;
+}
+
+// Un admin arranca la temporada del año con el día de la despedida (cierre de la
+// votación).
 export async function crearTemporada(formData: FormData): Promise<ResultadoVotacion> {
   const usuario = await requireUsuario();
-  if (!usuario.esAdmin) {
+  if (!esAdminVotaciones(usuario)) {
     return { error: SOLO_ADMIN };
   }
   const apertura = leerFecha(formData.get("apertura"));
   if (!apertura) {
-    return { error: "Elegí el día de la apertura." };
+    return { error: "Elegí el día de la despedida." };
   }
   if (apertura <= hoyArgentina()) {
-    return { error: "La apertura tiene que ser un día que todavía no llegó." };
+    return { error: "Tiene que ser un día que todavía no llegó." };
   }
   const anio = Number(apertura.slice(0, 4));
   if (await prisma.temporadaVotacion.findUnique({ where: { anio } })) {
@@ -41,31 +60,41 @@ export async function crearTemporada(formData: FormData): Promise<ResultadoVotac
   return { ok: true };
 }
 
-export async function cambiarApertura(
+async function temporadaParaAdmin(
   temporadaId: string,
-  formData: FormData,
-): Promise<ResultadoVotacion> {
+): Promise<{ error: string } | { temporada: { apertura: Date; publicada: boolean } }> {
   const usuario = await requireUsuario();
-  if (!usuario.esAdmin) {
+  if (!esAdminVotaciones(usuario)) {
     return { error: SOLO_ADMIN };
-  }
-  const apertura = leerFecha(formData.get("apertura"));
-  if (!apertura) {
-    return { error: "Elegí el día de la apertura." };
   }
   const temporada = await prisma.temporadaVotacion.findUnique({
     where: { id: temporadaId },
-    select: { apertura: true },
+    select: { apertura: true, publicada: true },
   });
   if (!temporada) {
     return { error: "La temporada ya no existe." };
   }
-  // Una vez abiertos, no se vuelven a cerrar: ya los vio todo el mundo.
-  if (estaAbierta(temporada.apertura)) {
-    return { error: YA_ABIERTA };
+  return { temporada };
+}
+
+export async function cambiarApertura(
+  temporadaId: string,
+  formData: FormData,
+): Promise<ResultadoVotacion> {
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
+  }
+  const apertura = leerFecha(formData.get("apertura"));
+  if (!apertura) {
+    return { error: "Elegí el día de la despedida." };
+  }
+  // Una vez cerrada no se reabre: los votos ya quedaron.
+  if (estaAbierta(chequeo.temporada.apertura)) {
+    return { error: YA_CERRADA };
   }
   if (apertura <= hoyArgentina()) {
-    return { error: "La apertura tiene que ser un día que todavía no llegó." };
+    return { error: "Tiene que ser un día que todavía no llegó." };
   }
   await prisma.temporadaVotacion.update({
     where: { id: temporadaId },
@@ -75,31 +104,32 @@ export async function cambiarApertura(
   return { ok: true };
 }
 
-// Se puede proponer y votar: publicada (o sos admin, que la está preparando) y antes de
-// la apertura.
-async function temporadaVotable(temporadaId: string, usuario: { esAdmin: boolean }) {
-  const temporada = await prisma.temporadaVotacion.findUnique({
+// En la despedida: se corta la votación ya (hoy pasa a ser el día del cierre).
+export async function cerrarVotacionYa(temporadaId: string): Promise<ResultadoVotacion> {
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
+  }
+  if (estaAbierta(chequeo.temporada.apertura)) {
+    return { error: YA_CERRADA };
+  }
+  await prisma.temporadaVotacion.update({
     where: { id: temporadaId },
-    select: { apertura: true, publicada: true },
+    data: { apertura: new Date(hoyArgentina()) },
   });
-  if (!temporada) {
-    return "La temporada ya no existe.";
-  }
-  if (!temporada.publicada && !usuario.esAdmin) {
-    return "Los admin de las votaciones están preparando la encuesta.";
-  }
-  return estaAbierta(temporada.apertura) ? YA_ABIERTA : null;
+  revalidar();
+  return { ok: true };
 }
 
 // Publicar: la ven todos y pueden proponer y votar. Ocultar la vuelve a dejar solo
-// para el admin.
+// para los admin.
 export async function publicarTemporada(
   temporadaId: string,
   publicar: boolean,
 ): Promise<ResultadoVotacion> {
-  const usuario = await requireUsuario();
-  if (!usuario.esAdmin) {
-    return { error: SOLO_ADMIN };
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
   }
   await prisma.temporadaVotacion.update({
     where: { id: temporadaId },
@@ -110,43 +140,97 @@ export async function publicarTemporada(
   return { ok: true };
 }
 
-// Cualquiera propone una categoría; la del admin queda aprobada directo.
+// Solo mientras está oculta (por ejemplo, después de probarla): se va con todo.
+export async function borrarTemporada(temporadaId: string): Promise<ResultadoVotacion> {
+  const chequeo = await temporadaParaAdmin(temporadaId);
+  if ("error" in chequeo) {
+    return chequeo;
+  }
+  if (chequeo.temporada.publicada) {
+    return { error: "Ya la ven todos: ocultala primero." };
+  }
+  await prisma.temporadaVotacion.delete({ where: { id: temporadaId } });
+  revalidar();
+  return { ok: true };
+}
+
+// Se puede proponer y votar: publicada (o sos admin, que la está preparando) y antes
+// del cierre.
+async function temporadaVotable(temporadaId: string, esAdmin: boolean) {
+  const temporada = await prisma.temporadaVotacion.findUnique({
+    where: { id: temporadaId },
+    select: { apertura: true, publicada: true },
+  });
+  if (!temporada) {
+    return "La temporada ya no existe.";
+  }
+  if (!temporada.publicada && !esAdmin) {
+    return PREPARANDO;
+  }
+  return estaAbierta(temporada.apertura) ? YA_CERRADA : null;
+}
+
+// Cualquiera propone una categoría; la de un admin queda aprobada directo.
 export async function proponerCategoria(
   temporadaId: string,
   texto: string,
 ): Promise<ResultadoVotacion> {
   const usuario = await requireUsuario();
-  const error = await temporadaVotable(temporadaId, usuario);
+  const esAdmin = esAdminVotaciones(usuario);
+  const error = await temporadaVotable(temporadaId, esAdmin);
   if (error) {
     return { error };
   }
-  const limpio = texto.trim().replace(/\s+/g, " ").slice(0, 60);
-  if (!limpio) {
+  const nombre = limpiarNombre(texto);
+  if (!nombre) {
     return { error: 'Escribí la categoría (ej: "El más tomador").' };
   }
-  const nombre = limpio[0].toUpperCase() + limpio.slice(1);
-  const repetida = await prisma.categoriaVotacion.findFirst({
-    where: { temporadaId, nombre: { equals: nombre, mode: "insensitive" } },
-    select: { id: true },
-  });
+  const repetida = await nombreRepetido(temporadaId, nombre);
   if (repetida) {
-    return { error: `Ya está "${nombre}".` };
+    return { error: repetida };
   }
   await prisma.categoriaVotacion.create({
-    data: {
-      temporadaId,
-      nombre,
-      propuestaPorId: usuario.id,
-      aprobada: usuario.esAdmin,
-    },
+    data: { temporadaId, nombre, propuestaPorId: usuario.id, aprobada: esAdmin },
   });
+  revalidar();
+  return { ok: true };
+}
+
+// Los admin corrigen el nombre (aprobada o propuesta). Los votos quedan.
+export async function renombrarCategoria(
+  categoriaId: string,
+  texto: string,
+): Promise<ResultadoVotacion> {
+  const usuario = await requireUsuario();
+  if (!esAdminVotaciones(usuario)) {
+    return { error: SOLO_ADMIN };
+  }
+  const categoria = await prisma.categoriaVotacion.findUnique({
+    where: { id: categoriaId },
+    select: { temporadaId: true, reveladaAt: true },
+  });
+  if (!categoria) {
+    return { error: "Esa categoría ya no está." };
+  }
+  if (categoria.reveladaAt) {
+    return { error: "Ya se reveló: queda como está." };
+  }
+  const nombre = limpiarNombre(texto);
+  if (!nombre) {
+    return { error: "Escribí el nombre de la categoría." };
+  }
+  const repetida = await nombreRepetido(categoria.temporadaId, nombre, categoriaId);
+  if (repetida) {
+    return { error: repetida };
+  }
+  await prisma.categoriaVotacion.update({ where: { id: categoriaId }, data: { nombre } });
   revalidar();
   return { ok: true };
 }
 
 export async function aprobarCategoria(categoriaId: string): Promise<ResultadoVotacion> {
   const usuario = await requireUsuario();
-  if (!usuario.esAdmin) {
+  if (!esAdminVotaciones(usuario)) {
     return { error: SOLO_ADMIN };
   }
   await prisma.categoriaVotacion.update({
@@ -157,8 +241,8 @@ export async function aprobarCategoria(categoriaId: string): Promise<ResultadoVo
   return { ok: true };
 }
 
-// Rechazar una propuesta (el admin o el que la propuso) o sacar una categoría
-// aprobada (solo el admin; se van sus votos).
+// Rechazar una propuesta (un admin o el que la propuso) o sacar una categoría
+// aprobada (solo los admin; se van sus votos).
 export async function borrarCategoria(categoriaId: string): Promise<ResultadoVotacion> {
   const usuario = await requireUsuario();
   const categoria = await prisma.categoriaVotacion.findUnique({
@@ -169,19 +253,20 @@ export async function borrarCategoria(categoriaId: string): Promise<ResultadoVot
     return { ok: true };
   }
   const puede =
-    usuario.esAdmin || (!categoria.aprobada && categoria.propuestaPorId === usuario.id);
+    esAdminVotaciones(usuario) ||
+    (!categoria.aprobada && categoria.propuestaPorId === usuario.id);
   if (!puede) {
     return { error: SOLO_ADMIN };
   }
   if (estaAbierta(categoria.temporada.apertura)) {
-    return { error: YA_ABIERTA };
+    return { error: YA_CERRADA };
   }
   await prisma.categoriaVotacion.delete({ where: { id: categoriaId } });
   revalidar();
   return { ok: true };
 }
 
-// Un voto por categoría; se puede cambiar hasta la apertura. A uno mismo no.
+// Un voto por categoría; se puede cambiar hasta el cierre. A uno mismo no.
 export async function votar(categoriaId: string, votadoId: string): Promise<ResultadoVotacion> {
   const usuario = await requireUsuario();
   if (votadoId === usuario.id) {
@@ -194,7 +279,7 @@ export async function votar(categoriaId: string, votadoId: string): Promise<Resu
   if (!categoria || !categoria.aprobada) {
     return { error: "Esa categoría no está para votar." };
   }
-  const error = await temporadaVotable(categoria.temporadaId, usuario);
+  const error = await temporadaVotable(categoria.temporadaId, esAdminVotaciones(usuario));
   if (error) {
     return { error };
   }
@@ -207,6 +292,100 @@ export async function votar(categoriaId: string, votadoId: string): Promise<Resu
     create: { categoriaId, votanteId: usuario.id, votadoId },
     update: { votadoId },
   });
+  revalidar();
+  return { ok: true };
+}
+
+// "¿Quién revela?": un admin elige quién presenta esa categoría (puede ser él mismo).
+// null = sacarle el permiso.
+export async function elegirRevelador(
+  categoriaId: string,
+  reveladorId: string | null,
+): Promise<ResultadoVotacion> {
+  const usuario = await requireUsuario();
+  if (!esAdminVotaciones(usuario)) {
+    return { error: SOLO_ADMIN };
+  }
+  const categoria = await prisma.categoriaVotacion.findUnique({
+    where: { id: categoriaId },
+    select: { aprobada: true, reveladaAt: true },
+  });
+  if (!categoria || !categoria.aprobada) {
+    return { error: "Esa categoría no está." };
+  }
+  if (categoria.reveladaAt) {
+    return { error: "Ya se reveló." };
+  }
+  if (reveladorId) {
+    const existe = await prisma.user.findUnique({
+      where: { id: reveladorId },
+      select: { id: true },
+    });
+    if (!existe) {
+      return { error: "Ese integrante ya no está en el grupo." };
+    }
+  }
+  await prisma.categoriaVotacion.update({
+    where: { id: categoriaId },
+    data: { reveladorId },
+  });
+  revalidar();
+  return { ok: true };
+}
+
+// Solo el que presenta abre el sobre, y recién cuando cerró la votación. Desde ahí lo
+// ven todos (cuántos votos sacó cada uno, nunca quién votó a quién).
+export async function revelarCategoria(categoriaId: string): Promise<ResultadoVotacion> {
+  const usuario = await requireUsuario();
+  const categoria = await prisma.categoriaVotacion.findUnique({
+    where: { id: categoriaId },
+    select: {
+      aprobada: true,
+      reveladorId: true,
+      reveladaAt: true,
+      temporada: { select: { apertura: true } },
+    },
+  });
+  if (!categoria || !categoria.aprobada) {
+    return { error: "Esa categoría no está." };
+  }
+  if (categoria.reveladaAt) {
+    return { ok: true };
+  }
+  if (categoria.reveladorId !== usuario.id) {
+    return { error: "Este sobre lo abre el que presenta la categoría." };
+  }
+  if (!estaAbierta(categoria.temporada.apertura)) {
+    return { error: "Todavía se está votando: el sobre se abre en la despedida." };
+  }
+  await prisma.categoriaVotacion.update({
+    where: { id: categoriaId },
+    data: { reveladaAt: new Date() },
+  });
+  revalidar();
+  return { ok: true };
+}
+
+// Solo el admin del grupo nombra (o saca) a los que lo ayudan con las votaciones.
+export async function cambiarAdminVotaciones(
+  userId: string,
+  valor: boolean,
+): Promise<ResultadoVotacion> {
+  const usuario = await requireUsuario();
+  if (!usuario.esAdmin) {
+    return { error: "Solo el admin del grupo elige a los admin de las votaciones." };
+  }
+  const integrante = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { esAdmin: true },
+  });
+  if (!integrante) {
+    return { error: "Ese integrante ya no está en el grupo." };
+  }
+  if (integrante.esAdmin) {
+    return { ok: true };
+  }
+  await prisma.user.update({ where: { id: userId }, data: { adminVotaciones: valor } });
   revalidar();
   return { ok: true };
 }

@@ -1,6 +1,6 @@
 import { Hourglass, Vote } from "lucide-react";
 import { requireUsuario } from "@/lib/auth";
-import { hoyArgentina, leerVotaciones } from "@/lib/votaciones/datos";
+import { esAdminVotaciones, hoyArgentina, leerVotaciones } from "@/lib/votaciones/datos";
 import { CrearTemporada } from "@/components/votaciones/CrearTemporada";
 import { PublicarTemporada } from "@/components/votaciones/PublicarTemporada";
 import { Votaciones } from "@/components/votaciones/Votaciones";
@@ -12,13 +12,14 @@ export const dynamic = "force-dynamic";
 export default async function VotacionesPage() {
   const usuario = await requireUsuario();
   const datos = await leerVotaciones(usuario.id);
+  const esAdmin = esAdminVotaciones(usuario);
   const anioActual = Number(hoyArgentina().slice(0, 4));
-  // Pasada la apertura del año, el admin ya puede arrancar la del año que viene.
+  // Pasada la despedida del año, los admin ya pueden arrancar la del año que viene.
   const puedeArrancar =
-    usuario.esAdmin && (!datos || (datos.temporada.abierta && datos.temporada.anio <= anioActual));
+    esAdmin && (!datos || (datos.temporada.cerrada && datos.temporada.anio <= anioActual));
 
   // Mientras el admin la prepara (o no hay temporada), el resto ve solo el cartel.
-  if (!usuario.esAdmin && (!datos || !datos.temporada.publicada)) {
+  if (!esAdmin && (!datos || !datos.temporada.publicada)) {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-6 pt-8 lg:max-w-5xl lg:px-8 lg:pt-12">
         <EncabezadoPagina titulo="Votaciones" />
@@ -39,17 +40,22 @@ export default async function VotacionesPage() {
         <CrearTemporada anioSugerido={datos ? datos.temporada.anio + 1 : anioActual} />
       )}
 
-      {datos && usuario.esAdmin && (
+      {datos && esAdmin && (
         <PublicarTemporada temporadaId={datos.temporada.id} publicada={datos.temporada.publicada} />
       )}
 
       {datos ? (
-        <Votaciones datos={datos} yoId={usuario.id} esAdmin={usuario.esAdmin} />
+        <Votaciones
+          datos={datos}
+          yoId={usuario.id}
+          esAdmin={esAdmin}
+          esAdminGrupo={usuario.esAdmin}
+        />
       ) : (
         <EmptyState
           icon={Vote}
           title="Todavía no hay temporada"
-          description="Arrancala arriba. Hasta que la publiques, solo la ves vos."
+          description="Arrancala arriba. Hasta que la publiquen, solo la ven los admin."
         />
       )}
     </main>
