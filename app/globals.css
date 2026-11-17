@@ -418,3 +418,15 @@
   .papelito, .guirnalda, .cumple-torta { animation: none; }
   .papelito { display: none; }
 }
+
+/* Votaciones: el sobre se abre con un pequeño salto. */
+.sobre-abierto {
+  animation: abrir-sobre 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes abrir-sobre {
+  from { transform: scale(0.92) rotate(-1deg); opacity: 0.4; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sobre-abierto { animation: none; }
+}
