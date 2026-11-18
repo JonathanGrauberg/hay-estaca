@@ -1,4 +1,4 @@
-import { Dices, HelpCircle, Shuffle, Spade, Users } from "lucide-react";
+import { Dices, Guitar, HelpCircle, Rewind, Shuffle, Spade, Users } from "lucide-react";
 import { requireUsuario } from "@/lib/auth";
 import { CardSeccion } from "@/components/inicio/CardSeccion";
 import { EncabezadoPagina } from "@/components/navegacion/EncabezadoPagina";
@@ -27,6 +27,18 @@ export default async function JuegosPage() {
           titulo="Dados"
           detalle="Tirá de 1 a 6 dados"
           href="/juegos/dados"
+        />
+        <CardSeccion
+          icon={Rewind}
+          titulo="Al revés"
+          detalle="Imitá la frase al revés"
+          href="/juegos/al-reves"
+        />
+        <CardSeccion
+          icon={Guitar}
+          titulo="Afinador"
+          detalle="Afiná la guitarra"
+          href="/juegos/afinador"
         />
         <CardSeccion icon={Shuffle} titulo="Ruleta" detalle="Próximamente" />
         <CardSeccion icon={Users} titulo="Equipos" detalle="Próximamente" />
